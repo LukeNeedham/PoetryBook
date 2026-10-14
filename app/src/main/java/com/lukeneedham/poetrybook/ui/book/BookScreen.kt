@@ -73,13 +73,16 @@ fun BookScreen(
             val currentPoem = poems.getOrNull(pageState.currentPage)
             BookToolbar(
                 editing = editing,
-                // Nothing to delete from a blank poem, such as the one at the end of the book.
-                canDelete = currentPoem != null && !currentPoem.isBlank && !pageState.isTurning,
+                // Nothing to delete from a blank poem, such as the one at the end of the book. This
+                // follows the current page, which only changes when a turn has settled, so the icon
+                // keeps its look while pages turn instead of flashing.
+                canDelete = currentPoem != null && !currentPoem.isBlank,
                 onOpenContents = {
                     stopEditing()
                     contentsOpen = true
                 },
-                onDelete = { confirmingDelete = true },
+                // Mid-turn the poem on show is about to change, so wait for the page to settle.
+                onDelete = { if (!pageState.isTurning) confirmingDelete = true },
                 onToggleEditing = {
                     if (editing) stopEditing() else if (!pageState.isTurning) editing = true
                 },
