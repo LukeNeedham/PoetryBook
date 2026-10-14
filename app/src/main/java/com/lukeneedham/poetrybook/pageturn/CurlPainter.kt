@@ -76,7 +76,7 @@ internal fun DrawScope.drawCurl(
 
     val curlBand = bandEngine.calculate(
         geometry = geometry,
-        stripCount = 12,
+        stripCount = 8,
         minimumWidth = max(density * 10f, pageWidth * 0.12f).toDouble(),
     )
     if (curlBand.isActive) {

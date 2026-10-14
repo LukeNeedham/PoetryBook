@@ -79,7 +79,6 @@ private fun AppNavDisplay(viewModel: PoemBookViewModel, start: NavKey) {
                         viewModel.closeBook()
                         backStack.removeLastOrNull()
                     },
-                    onOpenSettings = { backStack.add(Settings) },
                 )
             }
             entry<Settings> {

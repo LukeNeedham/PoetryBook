@@ -20,8 +20,8 @@ import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
- * The buttons along the top of the book: a ribbon for the contents on the left and a pencil to
- * edit the current poem on the right.
+ * The buttons along the top of the book: a ribbon for the contents on the left, and on the right a
+ * bin to delete the current poem and a pencil to edit it.
  *
  * It's a band of its own above the pages, with its own paper, so it never turns with them.
  * Whoever places it deals with the status bar inset.
@@ -29,7 +29,9 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 @Composable
 internal fun BookToolbar(
     editing: Boolean,
+    canDelete: Boolean,
     onOpenContents: () -> Unit,
+    onDelete: () -> Unit,
     onToggleEditing: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -50,6 +52,14 @@ internal fun BookToolbar(
                 )
             }
             Box(Modifier.weight(1f))
+            // Greyed out while there is nothing written to delete.
+            IconButton(onClick = onDelete, enabled = canDelete) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_trash),
+                    contentDescription = stringResource(R.string.delete_poem),
+                    tint = colors.accent.copy(alpha = if (canDelete) 1f else 0.35f),
+                )
+            }
             IconButton(onClick = onToggleEditing) {
                 Icon(
                     painter = painterResource(if (editing) R.drawable.ic_check else R.drawable.ic_pencil),

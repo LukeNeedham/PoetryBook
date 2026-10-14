@@ -5,20 +5,20 @@ An Android book for your own poetry. Every page is a poem you wrote: swipe acros
 - **One poem per page**, with the title centred at the top of the page. The book always ends with exactly one blank, unstarted poem ("Untitled"): write in it and a fresh one appears after it
 - **Turn pages** by swiping, or by tapping the left or right edge of the page
 - **Page-turn swipe**: pages peel off with a page-curl effect (the geometry comes from [TurnThePage](https://github.com/LukeNeedham/TurnThePage); see `pageturn/`)
-- A toolbar above the pages, with a ribbon button for **Contents** and a pencil to **edit** the poem (title and text). It is not part of the turning page; the pages turn below it. **Delete poem** while editing
-- **Contents** drops down from the top like a reversed bottom sheet, listing every poem. Tap one to turn straight to it
+- A toolbar above the pages, with a ribbon button for **Contents**, a bin to **delete** the poem (with a confirmation) and a pencil to **edit** it (title and text). It is not part of the turning page; the pages turn below it
+- **Contents** drops down from the top like a reversed bottom sheet, listing every poem. Tap one to turn straight to it. Its one button goes back to the **Bookshelf**
 - **Bookshelf**: the folder you choose is a library. Each subfolder is a **book**, shown as a cover on the shelf; text files directly in the folder are gathered into a book called **Misc**. You can create new books from the shelf, and get back to it from Contents
 - **Each poem is its own `.txt` file**, named after the poem's title, inside its book's folder, outside the app, so your poems survive reinstalling it
 - **Onboarding** has a step to pick that folder and grant PoetryBook access to it (Android's folder picker, with a persisted permission)
-- **Settings** (from the shelf or the Contents sheet) shows the folder, can open it in the system file browser, and can switch to a different folder
+- **Settings** (from the bookshelf) shows the folder, can open it in the system file browser, and can switch to a different folder
 
 ## Code layout
 
 | Package | What |
 | --- | --- |
-| `pageturn/` | The page-turn UI. `PageTurnBook` shows composable pages one at a time and curls between them; `PageTurnState` drives drags and settle animations. `geometry/` and `turn/` are the framework-free curl maths copied from TurnThePage; `CurlPainter` draws the fold. No EPUB / reading code. |
+| `pageturn/` | The page-turn UI. `PageTurnBook` shows composable pages one at a time and curls between them; `PageTurnState` drives drags and settle animations. The pages next to the current one are kept composed and recorded so a turn can start instantly. `geometry/` and `turn/` are the framework-free curl maths copied from TurnThePage; `CurlPainter` draws the fold. No EPUB / reading code. |
 | `ui/shelf/` | `ShelfScreen`, the bookshelf |
-| `ui/book/` | `BookScreen` (one book), `PoemPage` (read/edit one poem), `NewPoemPage`, `ContentsSheet` (the top drop-down), `PoemBookViewModel` (the library and the open book) |
+| `ui/book/` | `BookScreen` (one book), `PoemPage` (read/edit one poem), `BookToolbar`, `ContentsSheet` (the top drop-down), `PoemBookViewModel` (the library and the open book) |
 | `ui/onboarding/`, `ui/settings/` | First-run folder setup and the settings page |
 | `data/` | `Poem`; `Library` (the picked folder as books), `PoemFolder` (a directory in it, via the Storage Access Framework); `PoemRepository` (poems ⇄ files, renaming files as titles change); `AppSettings` (chosen folder and each book's page order) |
 

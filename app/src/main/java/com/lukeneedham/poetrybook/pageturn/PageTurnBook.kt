@@ -26,6 +26,7 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.toSize
 import com.lukeneedham.poetrybook.pageturn.geometry.PageCurlBandGeometryEngine
@@ -171,22 +172,34 @@ fun PageTurnBook(
                 }
             },
     ) {
-        val visible = listOfNotNull(state.currentPage, targetPage).distinct()
-        visible.forEach { index ->
+        // Both neighbours stay composed and recorded, so a turn can start on any frame without first
+        // having to build the incoming page. The current page goes last so it is on top.
+        val current = state.currentPage
+        val others = listOfNotNull(current - 1, current + 1, targetPage)
+            .filter { it != current && it in 0 until pageCount }
+            .distinct()
+        (others + current).forEach { index ->
             key(index) {
-                RecordedPage(index = index, state = state, layers = layers) { page(index) }
+                RecordedPage(
+                    index = index,
+                    isCurrent = index == current,
+                    state = state,
+                    layers = layers,
+                ) { page(index) }
             }
         }
     }
 }
 
 /**
- * Draws [content] normally while the book is at rest, and otherwise only records it into a layer
- * for [drawTurn] to fold.
+ * Lays out [content] and records it into a layer for [drawTurn] to fold. Only the current page
+ * is drawn, and only while no turn is in progress; the others are kept ready but unseen, and
+ * can't be touched or read out by accessibility services.
  */
 @Composable
 private fun RecordedPage(
     index: Int,
+    isCurrent: Boolean,
     state: PageTurnState,
     layers: MutableMap<Int, GraphicsLayer>,
     content: @Composable () -> Unit,
@@ -195,16 +208,22 @@ private fun RecordedPage(
     DisposableEffect(index, layer) {
         onDispose { if (layers[index] === layer) layers.remove(index) }
     }
+    // The turn changes every frame; whether there is one only at its start and end. Reading the
+    // turn itself here would re-record the page on every frame of the animation.
+    val turning by remember(state) { derivedStateOf { state.turn != null } }
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .then(if (isCurrent) Modifier else Modifier.clearAndSetSemantics { })
             .drawWithContent {
                 layer.record { this@drawWithContent.drawContent() }
                 layers[index] = layer
-                if (state.turn == null) drawLayer(layer)
+                if (isCurrent && !turning) drawLayer(layer)
             },
     ) {
         content()
+        // A page waiting its turn takes no part in input.
+        if (!isCurrent) Box(Modifier.matchParentSize().pointerInput(Unit) { })
     }
 }
 

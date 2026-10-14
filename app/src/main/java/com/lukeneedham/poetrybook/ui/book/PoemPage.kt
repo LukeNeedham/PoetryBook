@@ -60,7 +60,6 @@ fun PoemPage(
     editing: Boolean,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
-    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = paperColors()
@@ -89,8 +88,6 @@ fun PoemPage(
             lineHeight = 30.sp,
             color = colors.ink,
         )
-        var confirmingDelete by remember { mutableStateOf(false) }
-
         Column(
             modifier = modifier
                 .fillMaxSize()
@@ -190,51 +187,16 @@ fun PoemPage(
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (editing) {
-                    // Nothing to delete until something is written.
-                    if (!poem.isBlank) TextButton(onClick = { confirmingDelete = true }) {
-                        Text(
-                            text = stringResource(R.string.delete_poem),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                } else {
-                    Text(
-                        text = pageNumber.toString(),
-                        style = MaterialTheme.typography.labelLarge.copy(fontFamily = PoemFont),
-                        color = colors.faintInk,
-                        modifier = Modifier.padding(vertical = 12.dp),
-                    )
-                }
+            if (!editing) {
+                Text(
+                    text = pageNumber.toString(),
+                    style = MaterialTheme.typography.labelLarge.copy(fontFamily = PoemFont),
+                    color = colors.faintInk,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(top = 12.dp, bottom = 20.dp),
+                )
             }
-        }
-
-        if (confirmingDelete) {
-            AlertDialog(
-                onDismissRequest = { confirmingDelete = false },
-                title = { Text(stringResource(R.string.delete_poem_title)) },
-                text = { Text(stringResource(R.string.delete_poem_message)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            confirmingDelete = false
-                            onDelete()
-                        },
-                    ) { Text(stringResource(R.string.delete)) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { confirmingDelete = false }) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                },
-            )
         }
     }
 }
@@ -249,7 +211,6 @@ private fun PoemPagePreview() {
             editing = false,
             onTitleChange = {},
             onBodyChange = {},
-            onDelete = {},
         )
     }
 }

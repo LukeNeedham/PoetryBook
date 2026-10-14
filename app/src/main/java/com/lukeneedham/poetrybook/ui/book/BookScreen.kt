@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,6 +21,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
+import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.pageturn.PageTurnBook
 import com.lukeneedham.poetrybook.pageturn.rememberPageTurnState
 import com.lukeneedham.poetrybook.ui.theme.paperColors
@@ -30,13 +35,13 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 fun BookScreen(
     viewModel: PoemBookViewModel,
     onOpenShelf: () -> Unit,
-    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val poems = viewModel.poems
     val pageState = rememberPageTurnState()
     var editing by rememberSaveable { mutableStateOf(false) }
     var contentsOpen by rememberSaveable { mutableStateOf(false) }
+    var confirmingDelete by rememberSaveable { mutableStateOf(false) }
     var shownBook by rememberSaveable { mutableStateOf(viewModel.currentBook?.documentId) }
     val focusManager = LocalFocusManager.current
 
@@ -65,12 +70,16 @@ fun BookScreen(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
         ) {
+            val currentPoem = poems.getOrNull(pageState.currentPage)
             BookToolbar(
                 editing = editing,
+                // Nothing to delete from a blank poem, such as the one at the end of the book.
+                canDelete = currentPoem != null && !currentPoem.isBlank && !pageState.isTurning,
                 onOpenContents = {
                     stopEditing()
                     contentsOpen = true
                 },
+                onDelete = { confirmingDelete = true },
                 onToggleEditing = {
                     if (editing) stopEditing() else if (!pageState.isTurning) editing = true
                 },
@@ -90,10 +99,6 @@ fun BookScreen(
                     editing = editing && index == pageState.currentPage,
                     onTitleChange = { viewModel.updateTitle(poem.id, it) },
                     onBodyChange = { viewModel.updateBody(poem.id, it) },
-                    onDelete = {
-                        stopEditing()
-                        pageState.snapTo(viewModel.deletePoem(poem.id))
-                    },
                 )
             }
         }
@@ -111,11 +116,30 @@ fun BookScreen(
                 stopEditing()
                 onOpenShelf()
             },
-            onOpenSettings = {
-                contentsOpen = false
-                onOpenSettings()
-            },
             onDismiss = { contentsOpen = false },
+        )
+    }
+
+    val poemToDelete = poems.getOrNull(pageState.currentPage)
+    if (confirmingDelete && poemToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = { Text(stringResource(R.string.delete_poem_title)) },
+            text = { Text(stringResource(R.string.delete_poem_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingDelete = false
+                        stopEditing()
+                        pageState.snapTo(viewModel.deletePoem(poemToDelete.id))
+                    },
+                ) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingDelete = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
         )
     }
 }
