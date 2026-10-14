@@ -1,5 +1,21 @@
 <resources>
     <string name="app_name">PoetryBook</string>
-    <string name="home_title">PoetryBook</string>
-    <string name="home_subtitle">Your poems will live here.</string>
+
+    <string name="contents">Contents</string>
+    <string name="edit">Edit</string>
+    <string name="done">Done</string>
+    <string name="untitled">Untitled</string>
+    <string name="title_placeholder">Title</string>
+    <string name="body_placeholder">Write your poem…</string>
+    <string name="empty_poem_hint">Nothing here yet. Tap Edit to start writing.</string>
+    <string name="new_poem">New poem</string>
+
+    <string name="delete_poem">Delete poem</string>
+    <string name="delete_poem_title">Delete this poem?</string>
+    <string name="delete_poem_message">This can\'t be undone.</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+
+    <string name="welcome_title">Your First Page</string>
+    <string name="welcome_body">Swipe the page\nand it will turn.\n\nTap Edit above\nto make these lines your own,\nthen open Contents\nto find your way back.</string>
 </resources>
