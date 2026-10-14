@@ -49,7 +49,9 @@ class PoemRepository(
      * Makes the folder match [poems]. Returns true if everything is in sync, false if some change
      * failed and a later call should try again.
      */
-    fun save(poems: List<Poem>): Boolean {
+    fun save(allPoems: List<Poem>): Boolean {
+        // A poem with nothing written has no file (and loses it if it had one).
+        val poems = allPoems.filterNot { it.isBlank }
         var inSync = true
         val ids = poems.mapTo(HashSet()) { it.id }
 
@@ -67,8 +69,6 @@ class PoemRepository(
 
         poems.forEachIndexed { index, poem ->
             if (poem.id in tracked) return@forEachIndexed
-            // A poem nobody has written anything in yet doesn't get a file; it gets one on first edit.
-            if (poem.title.isBlank() && poem.body.isBlank()) return@forEachIndexed
             try {
                 // The body is written below; start from nothing so an empty poem needs no write.
                 tracked[poem.id] = Tracked(folder.create(names[index]), body = "").also {

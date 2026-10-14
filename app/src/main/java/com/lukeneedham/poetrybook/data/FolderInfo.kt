@@ -32,19 +32,33 @@ fun folderLabel(context: Context, treeUri: Uri): String {
     return name ?: treeUri.toString()
 }
 
-/** Shows the folder in the system file browser. Returns false if nothing could open it. */
+/**
+ * The Files app's "show this folder" action. It has no constant in the public SDK, but it is what
+ * the system file browser handles. A plain ACTION_VIEW for a folder is no good: apps that have
+ * nothing to do with files claim it, and the user gets a chooser full of them.
+ */
+private const val ActionBrowse = "android.provider.action.BROWSE"
+
+/**
+ * Shows the folder in the system file browser. Returns false if nothing could open it.
+ *
+ * If there is no file browser that takes the browse action, falls back to the system folder
+ * picker opened at the folder, which at least shows what is in it.
+ */
 fun openFolderInFileBrowser(context: Context, treeUri: Uri): Boolean {
     val authority = treeUri.authority ?: return false
     val documentId = runCatching { DocumentsContract.getTreeDocumentId(treeUri) }.getOrNull()
         ?: return false
     val folder = DocumentsContract.buildDocumentUri(authority, documentId)
     val attempts = listOf(
-        Intent(Intent.ACTION_VIEW).setDataAndType(folder, DocumentsContract.Document.MIME_TYPE_DIR),
-        Intent(Intent.ACTION_VIEW).setData(treeUri),
+        Intent(ActionBrowse)
+            .setDataAndType(folder, DocumentsContract.Document.MIME_TYPE_DIR)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+        Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).putExtra(DocumentsContract.EXTRA_INITIAL_URI, folder),
     )
     return attempts.any { intent ->
         try {
-            context.startActivity(intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+            context.startActivity(intent)
             true
         } catch (_: ActivityNotFoundException) {
             false

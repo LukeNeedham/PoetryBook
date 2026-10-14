@@ -2,10 +2,10 @@
 
 An Android book for your own poetry. Every page is a poem you wrote: swipe across the page to turn it, tap **Edit** to change it.
 
-- **One poem per page**, with the title centred at the top of the page. The last page is always a blank **New poem** page: starting a poem there turns it into that poem and adds a fresh one after it
+- **One poem per page**, with the title centred at the top of the page. The book always ends with exactly one blank, unstarted poem ("Untitled"): write in it and a fresh one appears after it
 - **Turn pages** by swiping, or by tapping the left or right edge of the page
 - **Page-turn swipe**: pages peel off with a page-curl effect (the geometry comes from [TurnThePage](https://github.com/LukeNeedham/TurnThePage); see `pageturn/`)
-- A toolbar with a ribbon button for **Contents** and a pencil to **edit** the poem (title and text); **Delete poem** while editing
+- A toolbar above the pages, with a ribbon button for **Contents** and a pencil to **edit** the poem (title and text). It is not part of the turning page; the pages turn below it. **Delete poem** while editing
 - **Contents** drops down from the top like a reversed bottom sheet, listing every poem. Tap one to turn straight to it
 - **Bookshelf**: the folder you choose is a library. Each subfolder is a **book**, shown as a cover on the shelf; text files directly in the folder are gathered into a book called **Misc**. You can create new books from the shelf, and get back to it from Contents
 - **Each poem is its own `.txt` file**, named after the poem's title, inside its book's folder, outside the app, so your poems survive reinstalling it
@@ -48,4 +48,4 @@ See the [setup guide](https://github.com/LukeNeedham/ci-workflows/blob/main/docs
 - Each book's page order is kept in the app's settings, since text files can't hold it. After a reinstall, poems come back in alphabetical order.
 - Poems are read from the folder when the app starts; edits made to the files while the app is open are picked up on the next start.
 - Choosing a different folder loads the books in that folder; your current books and poems stay in the old folder.
-- A new poem has no file until something is written in it.
+- A poem with no title and no text is unstarted: it has no file, and loses it if you empty a poem out.

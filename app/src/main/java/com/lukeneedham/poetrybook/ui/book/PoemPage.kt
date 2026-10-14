@@ -49,8 +49,8 @@ import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
- * One page of the book: a poem with its title centred at the top, below the book's toolbar (which
- * is not part of the page, so it doesn't turn with it). It reads as plain paper until [editing]
+ * One page of the book: a poem with its title centred at the top. The book's toolbar sits above
+ * the page and isn't part of it, so it doesn't turn. It reads as plain paper until [editing]
  * is true, when the title and text become editable.
  */
 @Composable
@@ -101,7 +101,7 @@ fun PoemPage(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = BookToolbarHeight, start = 20.dp, end = 20.dp),
+                    .padding(top = 16.dp, start = 20.dp, end = 20.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 if (editing) {
@@ -198,7 +198,8 @@ fun PoemPage(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (editing) {
-                    TextButton(onClick = { confirmingDelete = true }) {
+                    // Nothing to delete until something is written.
+                    if (!poem.isBlank) TextButton(onClick = { confirmingDelete = true }) {
                         Text(
                             text = stringResource(R.string.delete_poem),
                             color = MaterialTheme.colorScheme.error,

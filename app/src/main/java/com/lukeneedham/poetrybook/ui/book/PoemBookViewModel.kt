@@ -14,6 +14,7 @@ import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.Library
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.data.PoemRepository
+import com.lukeneedham.poetrybook.data.withOneBlankLast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -72,7 +73,10 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     var loadingBooks by mutableStateOf(false)
         private set
 
-    /** The open book's poems in page order. The book's last page, for adding a poem, isn't one of these. */
+    /**
+     * The open book's poems in page order. The last one is always a blank, unstarted poem, and
+     * only the last one is: it's where the next poem gets written.
+     */
     val poems = mutableStateListOf<Poem>()
 
     init {
@@ -170,6 +174,7 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
             repository = repo
             poems.clear()
             poems.addAll(loaded)
+            keepOneBlankPoemLast()
             currentBook = book
             onDone(true)
         }
@@ -216,23 +221,14 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
 
     fun updateBody(id: String, body: String) = update(id) { it.copy(body = body) }
 
-    /**
-     * Adds a blank poem at the end of the poems and returns its page index. That is the page the
-     * add-a-poem page was on; the add-a-poem page moves along to stay last.
-     */
-    fun addPoem(): Int {
-        poems.add(Poem(id = newId()))
-        return poems.lastIndex
-    }
-
     /** Removes the poem (and its file) and returns the index of the page to show instead. */
     fun deletePoem(id: String): Int {
         val index = poems.indexOfFirst { it.id == id }
         if (index < 0) return 0
         poems.removeAt(index)
+        keepOneBlankPoemLast()
         scheduleSave()
-        // Past the last poem is the add-a-poem page, which is always there to land on.
-        return index.coerceAtMost(poems.size)
+        return index.coerceAtMost(poems.lastIndex)
     }
 
     /** Writes any pending changes now, e.g. when the app goes to the background. */
@@ -248,7 +244,19 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         val updated = change(poems[index])
         if (updated == poems[index]) return
         poems[index] = updated
+        keepOneBlankPoemLast()
         scheduleSave()
+    }
+
+    /**
+     * Makes sure the book ends with exactly one blank poem: starting to write in it adds a fresh
+     * one after it, and emptying a poem at the end doesn't leave two blanks behind.
+     */
+    private fun keepOneBlankPoemLast() {
+        val fixed = withOneBlankLast(poems) { Poem(id = newId()) }
+        // Only the end changes, so touch only the end and leave the other pages alone.
+        if (fixed.size > poems.size) poems.add(fixed.last())
+        while (poems.size > fixed.size) poems.removeAt(poems.lastIndex)
     }
 
     private fun scheduleSave() {

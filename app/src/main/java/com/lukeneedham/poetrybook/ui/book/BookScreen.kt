@@ -2,22 +2,29 @@ package com.lukeneedham.poetrybook.ui.book
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import com.lukeneedham.poetrybook.pageturn.PageTurnBook
 import com.lukeneedham.poetrybook.pageturn.rememberPageTurnState
+import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
  * One book of poems, which you swipe or tap through, with a contents sheet dropping from the top.
- * The book's last page is always the one for starting a new poem.
+ * The book always ends with a blank poem, ready to be written.
  */
 @Composable
 fun BookScreen(
@@ -50,26 +57,33 @@ fun BookScreen(
 
     BackHandler(enabled = editing) { stopEditing() }
 
-    // The poems, then one page for adding another.
-    val newPoemPage = poems.size
-    val onPoem = pageState.currentPage < newPoemPage
+    Box(modifier = modifier.fillMaxSize().background(paperColors().paper)) {
+        // The status bar and sides are dealt with here, once, so the toolbar sits below the status
+        // bar and the pages (which only add what's left, e.g. the keyboard) sit below the toolbar.
+        Column(
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
+        ) {
+            BookToolbar(
+                editing = editing,
+                onOpenContents = {
+                    stopEditing()
+                    contentsOpen = true
+                },
+                onToggleEditing = {
+                    if (editing) stopEditing() else if (!pageState.isTurning) editing = true
+                },
+            )
 
-    Box(modifier = modifier.fillMaxSize()) {
-        PageTurnBook(
-            state = pageState,
-            pageCount = poems.size + 1,
-            gesturesEnabled = !editing && !contentsOpen,
-        ) { index ->
-            val poem = poems.getOrNull(index)
-            if (poem == null) {
-                NewPoemPage(
-                    onNewPoem = {
-                        // The new poem takes over this page; a fresh page for adding one follows it.
-                        viewModel.addPoem()
-                        editing = true
-                    },
-                )
-            } else {
+            // The pages turn only in the space below the toolbar.
+            PageTurnBook(
+                state = pageState,
+                pageCount = poems.size,
+                gesturesEnabled = !editing && !contentsOpen,
+                modifier = Modifier.weight(1f),
+            ) { index ->
+                val poem = poems.getOrNull(index) ?: return@PageTurnBook
                 PoemPage(
                     poem = poem,
                     pageNumber = index + 1,
@@ -83,19 +97,6 @@ fun BookScreen(
                 )
             }
         }
-
-        BookToolbar(
-            canEdit = onPoem,
-            editing = editing,
-            onOpenContents = {
-                stopEditing()
-                contentsOpen = true
-            },
-            onToggleEditing = {
-                if (editing) stopEditing() else if (!pageState.isTurning) editing = true
-            },
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
 
         ContentsSheet(
             visible = contentsOpen,
