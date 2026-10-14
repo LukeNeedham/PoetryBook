@@ -175,7 +175,7 @@ fun PageTurnBook(
         // Both neighbours stay composed and recorded, so a turn can start on any frame without first
         // having to build the incoming page. The current page goes last so it is on top.
         val current = state.currentPage
-        val others = listOfNotNull(current - 1, current + 1, targetPage)
+        val others = listOfNotNull(current - 1, current + 1, targetPage, state.warmPage)
             .filter { it != current && it in 0 until pageCount }
             .distinct()
         (others + current).forEach { index ->

@@ -1,5 +1,10 @@
 package com.lukeneedham.poetrybook.navigation
 
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +23,15 @@ import com.lukeneedham.poetrybook.ui.settings.SettingsScreen
 import com.lukeneedham.poetrybook.ui.shelf.ShelfScreen
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
+private const val ScreenTransitionMillis = 300
+
+/** Going back: the screen being left slides away to the right, on top of the one revealed. */
+private fun popTransition(): ContentTransform =
+    (
+        slideInHorizontally(tween(ScreenTransitionMillis)) { -it / 3 } togetherWith
+            slideOutHorizontally(tween(ScreenTransitionMillis)) { it }
+        ).apply { targetContentZIndex = -1f }
+
 @Composable
 fun AppNavigation(viewModel: PoemBookViewModel) {
     when (viewModel.status) {
@@ -33,7 +47,17 @@ private fun AppNavDisplay(viewModel: PoemBookViewModel, start: NavKey) {
     val backStack = rememberNavBackStack(start)
 
     NavDisplay(
+        // Paper behind the screens, so a transition never shows anything else through a gap.
+        modifier = Modifier.background(paperColors().paper),
         backStack = backStack,
+        // Screens slide over one another. They're all opaque paper, so unlike a crossfade nothing
+        // is ever see-through (a crossfade over the white window background flashes in dark mode).
+        transitionSpec = {
+            slideInHorizontally(tween(ScreenTransitionMillis)) { it } togetherWith
+                slideOutHorizontally(tween(ScreenTransitionMillis)) { -it / 3 }
+        },
+        popTransitionSpec = { popTransition() },
+        predictivePopTransitionSpec = { popTransition() },
         onBack = {
             // Leaving a book by going back puts it on the shelf, like the shelf button does.
             if (backStack.lastOrNull() == Book) viewModel.closeBook()

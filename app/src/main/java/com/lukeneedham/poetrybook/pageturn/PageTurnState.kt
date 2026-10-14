@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,6 +22,7 @@ import com.lukeneedham.poetrybook.pageturn.turn.TurnDirection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -74,6 +76,10 @@ class PageTurnState internal constructor(
         currentPage = page.coerceAtLeast(0)
     }
 
+    /** A far-away page being got ready for [animateTo], so it exists before its turn starts. */
+    internal var warmPage: Int? by mutableStateOf(null)
+        private set
+
     /** Turns pages, with the curl animation, until [page] is showing. */
     fun animateTo(page: Int) {
         if (turn != null || page == currentPage) return
@@ -81,6 +87,23 @@ class PageTurnState internal constructor(
             snapTo(page)
             return
         }
+        if (abs(page - currentPage) <= 1) {
+            startTurn(page)
+            return
+        }
+        // The pages either side of the current one are always ready, but a far page isn't. Have it
+        // laid out and recorded first, so the turn doesn't start by building a page mid-animation.
+        val from = currentPage
+        scope.launch {
+            warmPage = page
+            withFrameNanos { }
+            withFrameNanos { }
+            if (turn == null && currentPage == from) startTurn(page)
+            warmPage = null
+        }
+    }
+
+    private fun startTurn(page: Int) {
         val direction = if (page > currentPage) TurnDirection.FORWARD else TurnDirection.BACKWARD
         val width = pageSize.width.toDouble()
         val bottom = pageSize.height.toDouble()
