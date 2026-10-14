@@ -67,6 +67,8 @@ class PoemRepository(
 
         poems.forEachIndexed { index, poem ->
             if (poem.id in tracked) return@forEachIndexed
+            // A poem nobody has written anything in yet doesn't get a file; it gets one on first edit.
+            if (poem.title.isBlank() && poem.body.isBlank()) return@forEachIndexed
             try {
                 // The body is written below; start from nothing so an empty poem needs no write.
                 tracked[poem.id] = Tracked(folder.create(names[index]), body = "").also {

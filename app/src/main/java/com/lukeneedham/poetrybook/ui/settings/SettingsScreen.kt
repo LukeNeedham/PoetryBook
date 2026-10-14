@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -51,11 +52,33 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     var pickFailed by rememberSaveable { mutableStateOf(false) }
+    var confirmingSwitch by rememberSaveable { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         pickFailed = false
         onFolderPicked(uri) { ok -> pickFailed = !ok }
+    }
+
+    if (confirmingSwitch) {
+        AlertDialog(
+            onDismissRequest = { confirmingSwitch = false },
+            title = { Text(stringResource(R.string.switch_folder_title)) },
+            text = { Text(stringResource(R.string.switch_folder_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingSwitch = false
+                        picker.launch(folderUri)
+                    },
+                ) { Text(stringResource(R.string.choose_folder)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingSwitch = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -123,7 +146,7 @@ fun SettingsScreen(
                 Text(stringResource(R.string.open_in_file_browser))
             }
             OutlinedButton(
-                onClick = { picker.launch(folderUri) },
+                onClick = { confirmingSwitch = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 8.dp, top = 8.dp),

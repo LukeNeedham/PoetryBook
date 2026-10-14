@@ -4,20 +4,20 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import com.lukeneedham.poetrybook.pageturn.PageTurnBook
 import com.lukeneedham.poetrybook.pageturn.rememberPageTurnState
-import kotlinx.coroutines.launch
 
 /**
- * The whole app: a book of poems you swipe through, with a contents sheet dropping from the top.
+ * The whole app: a book of poems you swipe or tap through, with a contents sheet dropping from
+ * the top. The book's last page is always the one for starting a new poem.
  */
 @Composable
 fun BookScreen(
@@ -29,41 +29,72 @@ fun BookScreen(
     val pageState = rememberPageTurnState()
     var editing by rememberSaveable { mutableStateOf(false) }
     var contentsOpen by rememberSaveable { mutableStateOf(false) }
+    var shownFolder by rememberSaveable { mutableStateOf(viewModel.folderUri?.toString()) }
     val focusManager = LocalFocusManager.current
-    val scope = rememberCoroutineScope()
 
     fun stopEditing() {
         focusManager.clearFocus()
         editing = false
     }
 
+    // A different folder is a different book: start it from the beginning.
+    LaunchedEffect(viewModel.folderUri) {
+        val folder = viewModel.folderUri?.toString()
+        if (folder != shownFolder) {
+            shownFolder = folder
+            editing = false
+            pageState.snapTo(0)
+        }
+    }
+
     BackHandler(enabled = editing) { stopEditing() }
+
+    // The poems, then one page for adding another.
+    val newPoemPage = poems.size
+    val onPoem = pageState.currentPage < newPoemPage
 
     Box(modifier = modifier.fillMaxSize()) {
         PageTurnBook(
             state = pageState,
-            pageCount = poems.size,
+            pageCount = poems.size + 1,
             gesturesEnabled = !editing && !contentsOpen,
         ) { index ->
-            val poem = poems.getOrNull(index) ?: return@PageTurnBook
-            PoemPage(
-                poem = poem,
-                pageNumber = index + 1,
-                editing = editing && index == pageState.currentPage,
-                onOpenContents = {
-                    stopEditing()
-                    contentsOpen = true
-                },
-                onStartEditing = { editing = true },
-                onStopEditing = ::stopEditing,
-                onTitleChange = { viewModel.updateTitle(poem.id, it) },
-                onBodyChange = { viewModel.updateBody(poem.id, it) },
-                onDelete = {
-                    stopEditing()
-                    pageState.snapTo(viewModel.deletePoem(poem.id))
-                },
-            )
+            val poem = poems.getOrNull(index)
+            if (poem == null) {
+                NewPoemPage(
+                    onNewPoem = {
+                        // The new poem takes over this page; a fresh page for adding one follows it.
+                        viewModel.addPoem()
+                        editing = true
+                    },
+                )
+            } else {
+                PoemPage(
+                    poem = poem,
+                    pageNumber = index + 1,
+                    editing = editing && index == pageState.currentPage,
+                    onTitleChange = { viewModel.updateTitle(poem.id, it) },
+                    onBodyChange = { viewModel.updateBody(poem.id, it) },
+                    onDelete = {
+                        stopEditing()
+                        pageState.snapTo(viewModel.deletePoem(poem.id))
+                    },
+                )
+            }
         }
+
+        BookToolbar(
+            canEdit = onPoem,
+            editing = editing,
+            onOpenContents = {
+                stopEditing()
+                contentsOpen = true
+            },
+            onToggleEditing = {
+                if (editing) stopEditing() else if (!pageState.isTurning) editing = true
+            },
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
 
         ContentsSheet(
             visible = contentsOpen,
@@ -72,15 +103,6 @@ fun BookScreen(
             onSelect = { index ->
                 contentsOpen = false
                 pageState.animateTo(index)
-            },
-            onNewPoem = {
-                contentsOpen = false
-                val index = viewModel.addPoem()
-                scope.launch {
-                    // Let the book see the new page before turning to it.
-                    withFrameNanos { }
-                    pageState.animateTo(index)
-                }
             },
             onOpenSettings = {
                 contentsOpen = false

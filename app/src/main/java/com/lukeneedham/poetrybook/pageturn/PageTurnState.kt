@@ -96,6 +96,12 @@ class PageTurnState internal constructor(
         settle(SettleTarget.COMPLETE)
     }
 
+    /** Turns one page forward ([delta] 1) or back (-1), if there is a page to turn to. */
+    internal fun turnBy(delta: Int) {
+        val direction = if (delta > 0) TurnDirection.FORWARD else TurnDirection.BACKWARD
+        if (canTurn(direction)) animateTo(currentPage + delta)
+    }
+
     internal fun beginDrag(direction: TurnDirection, anchorY: Double) {
         settleJob?.cancel()
         val target = if (direction == TurnDirection.FORWARD) currentPage + 1 else currentPage - 1

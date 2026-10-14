@@ -57,7 +57,7 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     var folderUri: Uri? by mutableStateOf(null)
         private set
 
-    /** The book is never empty: the last poem can't be removed, only replaced by a blank one. */
+    /** The poems in page order. The book's last page, for adding a poem, is not one of these. */
     val poems = mutableStateListOf<Poem>()
 
     init {
@@ -76,16 +76,14 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
             status = BookStatus.NEEDS_FOLDER
             return
         }
-        adopt(uri, loaded.first, loaded.second)
+        adopt(uri, loaded.first, loaded.second, welcomeIfEmpty = false)
         status = BookStatus.READY
-        // A folder with no poems gets the welcome poem written into it.
-        if (loaded.second.isEmpty()) saveNow()
     }
 
     /**
      * Starts using [uri], a folder just picked with the system picker, and calls [onDone] with
-     * whether it worked. Poems already in the folder are shown; if it has none, the current poems
-     * are saved into it so nothing is lost when switching folders.
+     * whether it worked. The book then shows the poems in that folder. The poems from the previous
+     * folder stay there, untouched.
      */
     fun chooseFolder(uri: Uri, onDone: (Boolean) -> Unit) {
         scope.launch {
@@ -106,7 +104,8 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
             saveNow()
 
             val previous = folderUri
-            adopt(uri, opened.first, opened.second)
+            // Someone setting up for the first time starts with a poem to show what a page looks like.
+            adopt(uri, opened.first, opened.second, welcomeIfEmpty = previous == null)
             if (previous != null && previous != uri) releaseAccess(previous)
             status = BookStatus.READY
             saveNow()
@@ -120,19 +119,14 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
             runCatching { repo to repo.load() }.getOrNull()
         }
 
-    private fun adopt(uri: Uri, repo: PoemRepository, existing: List<Poem>) {
+    private fun adopt(uri: Uri, repo: PoemRepository, existing: List<Poem>, welcomeIfEmpty: Boolean) {
         repository = repo
         folderUri = uri
         folderLost = false
         settings.folderUri = uri
-        when {
-            existing.isNotEmpty() -> {
-                poems.clear()
-                poems.addAll(existing)
-            }
-            poems.isEmpty() -> poems.add(welcomePoem())
-            // Otherwise keep the poems we have; saving writes them into the new, empty folder.
-        }
+        poems.clear()
+        poems.addAll(existing)
+        if (existing.isEmpty() && welcomeIfEmpty) poems.add(welcomePoem())
     }
 
     private fun hasAccess(uri: Uri): Boolean =
@@ -153,10 +147,12 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
 
     fun updateBody(id: String, body: String) = update(id) { it.copy(body = body) }
 
-    /** Adds a blank poem at the end of the book and returns its index. */
+    /**
+     * Adds a blank poem at the end of the poems and returns its page index. That is the page the
+     * add-a-poem page was on; the add-a-poem page moves along to stay last.
+     */
     fun addPoem(): Int {
         poems.add(Poem(id = newId()))
-        scheduleSave()
         return poems.lastIndex
     }
 
@@ -165,9 +161,9 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         val index = poems.indexOfFirst { it.id == id }
         if (index < 0) return 0
         poems.removeAt(index)
-        if (poems.isEmpty()) poems.add(Poem(id = newId()))
         scheduleSave()
-        return index.coerceAtMost(poems.lastIndex)
+        // Past the last poem is the add-a-poem page, which is always there to land on.
+        return index.coerceAtMost(poems.size)
     }
 
     /** Writes any pending changes now, e.g. when the app goes to the background. */

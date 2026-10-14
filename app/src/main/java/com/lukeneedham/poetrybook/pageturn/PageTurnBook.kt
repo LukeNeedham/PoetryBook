@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -36,6 +37,9 @@ import com.lukeneedham.poetrybook.pageturn.turn.decideSettleTarget
 import kotlin.math.abs
 import com.lukeneedham.poetrybook.pageturn.geometry.Rect as CurlRect
 
+/** Taps within this fraction of the page width from the left or right side turn the page. */
+private const val TAP_EDGE_FRACTION = 0.33f
+
 /**
  * A book that shows [pageCount] full-size pages, one at a time. Swiping across the page peels it
  * off with a page-curl effect; [state] can also turn pages programmatically.
@@ -54,11 +58,19 @@ fun PageTurnBook(
     page: @Composable (index: Int) -> Unit,
 ) {
     SideEffect { state.pageCount = pageCount }
+    // Pages can disappear (a poem deleted, another folder opened); never stay past the last one.
+    LaunchedEffect(pageCount) {
+        if (pageCount > 0 && state.currentPage > pageCount - 1 && !state.isTurning) {
+            state.snapTo(pageCount - 1)
+        }
+    }
 
     val layers = remember { mutableMapOf<Int, GraphicsLayer>() }
     val geometryEngine = remember { PageCurlGeometryEngine() }
     val bandEngine = remember { PageCurlBandGeometryEngine() }
-    val touchSlop = LocalViewConfiguration.current.touchSlop
+    val viewConfiguration = LocalViewConfiguration.current
+    val touchSlop = viewConfiguration.touchSlop
+    val tapTimeout = viewConfiguration.longPressTimeoutMillis
     // Only the target page index matters to composition; the pointer position changes every
     // frame during a turn and is read only while drawing.
     val targetPage by remember(state) { derivedStateOf { state.turn?.target } }
@@ -74,7 +86,7 @@ fun PageTurnBook(
                     drawTurn(turn, state.currentPage, layers, geometryEngine, bandEngine)
                 }
             }
-            .pointerInput(state, gesturesEnabled, touchSlop) {
+            .pointerInput(state, gesturesEnabled, touchSlop, tapTimeout) {
                 if (!gesturesEnabled) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -95,7 +107,18 @@ fun PageTurnBook(
                             displacement = change.position - down.position
 
                             if (direction == null) {
-                                if (!change.pressed) return@awaitEachGesture
+                                if (!change.pressed) {
+                                    // A quick tap on either edge turns the page, like in TurnThePage.
+                                    val quick = change.uptimeMillis - down.uptimeMillis < tapTimeout
+                                    if (quick && !change.isConsumed && displacement.getDistance() < touchSlop) {
+                                        val edge = state.pageSize.width * TAP_EDGE_FRACTION
+                                        when {
+                                            down.position.x < edge -> state.turnBy(-1)
+                                            down.position.x > state.pageSize.width - edge -> state.turnBy(1)
+                                        }
+                                    }
+                                    return@awaitEachGesture
+                                }
                                 // Something else, such as a scrolling poem, took the gesture.
                                 if (change.isConsumed) return@awaitEachGesture
                                 val horizontal = abs(displacement.x)

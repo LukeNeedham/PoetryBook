@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
@@ -49,20 +48,16 @@ import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
-private val SideSlotWidth = 88.dp
-
 /**
- * One page of the book: a poem with its title centred at the top. It reads as plain paper until
- * [editing] is true, when the title and text become editable.
+ * One page of the book: a poem with its title centred at the top, below the book's toolbar (which
+ * is not part of the page, so it doesn't turn with it). It reads as plain paper until [editing]
+ * is true, when the title and text become editable.
  */
 @Composable
 fun PoemPage(
     poem: Poem,
     pageNumber: Int,
     editing: Boolean,
-    onOpenContents: () -> Unit,
-    onStartEditing: () -> Unit,
-    onStopEditing: () -> Unit,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
     onDelete: () -> Unit,
@@ -103,67 +98,51 @@ fun PoemPage(
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(horizontal = 12.dp),
         ) {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(top = BookToolbarHeight, start = 20.dp, end = 20.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.width(SideSlotWidth), contentAlignment = Alignment.CenterStart) {
-                    TextButton(onClick = onOpenContents) {
-                        Text(stringResource(R.string.contents), color = colors.accent)
-                    }
-                }
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    if (editing) {
-                        BasicTextField(
-                            state = titleState,
-                            textStyle = titleStyle,
-                            lineLimits = TextFieldLineLimits.SingleLine,
-                            cursorBrush = SolidColor(colors.accent),
-                            decorator = { inner ->
-                                Box(contentAlignment = Alignment.Center) {
-                                    if (titleState.text.isEmpty()) {
-                                        Text(
-                                            text = stringResource(R.string.title_placeholder),
-                                            style = titleStyle.copy(
-                                                color = colors.faintInk,
-                                                fontWeight = FontWeight.Normal,
-                                            ),
-                                        )
-                                    }
-                                    inner()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        Text(
-                            text = poem.title.ifBlank { stringResource(R.string.untitled) },
-                            style = titleStyle.let {
-                                if (poem.title.isBlank()) {
-                                    it.copy(
-                                        color = colors.faintInk,
-                                        fontStyle = FontStyle.Italic,
-                                        fontWeight = FontWeight.Normal,
+                if (editing) {
+                    BasicTextField(
+                        state = titleState,
+                        textStyle = titleStyle,
+                        lineLimits = TextFieldLineLimits.SingleLine,
+                        cursorBrush = SolidColor(colors.accent),
+                        decorator = { inner ->
+                            Box(contentAlignment = Alignment.Center) {
+                                if (titleState.text.isEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.title_placeholder),
+                                        style = titleStyle.copy(
+                                            color = colors.faintInk,
+                                            fontWeight = FontWeight.Normal,
+                                        ),
                                     )
-                                } else {
-                                    it
                                 }
-                            },
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                Box(Modifier.width(SideSlotWidth), contentAlignment = Alignment.CenterEnd) {
-                    TextButton(onClick = if (editing) onStopEditing else onStartEditing) {
-                        Text(
-                            text = stringResource(if (editing) R.string.done else R.string.edit),
-                            color = colors.accent,
-                            fontWeight = if (editing) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    }
+                                inner()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    Text(
+                        text = poem.title.ifBlank { stringResource(R.string.untitled) },
+                        style = titleStyle.let {
+                            if (poem.title.isBlank()) {
+                                it.copy(
+                                    color = colors.faintInk,
+                                    fontStyle = FontStyle.Italic,
+                                    fontWeight = FontWeight.Normal,
+                                )
+                            } else {
+                                it
+                            }
+                        },
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
 
@@ -267,9 +246,6 @@ private fun PoemPagePreview() {
             poem = Poem("1", "Evening", "The light goes out\nof the afternoon,\nslowly, like a breath."),
             pageNumber = 1,
             editing = false,
-            onOpenContents = {},
-            onStartEditing = {},
-            onStopEditing = {},
             onTitleChange = {},
             onBodyChange = {},
             onDelete = {},

@@ -54,7 +54,7 @@ import com.lukeneedham.poetrybook.ui.theme.PoemFont
 
 /**
  * The contents page: a sheet that drops down from the top of the screen and lists every poem.
- * Tapping a poem calls [onSelect]; the handle at the bottom can be dragged up to close it.
+ * Tapping a poem calls [onSelect]; new poems are started on the book's last page, not here. The handle at the bottom can be dragged up to close it.
  */
 @Composable
 fun ContentsSheet(
@@ -62,7 +62,6 @@ fun ContentsSheet(
     poems: List<Poem>,
     currentIndex: Int,
     onSelect: (Int) -> Unit,
-    onNewPoem: () -> Unit,
     onOpenSettings: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -111,7 +110,6 @@ fun ContentsSheet(
                             style = MaterialTheme.typography.titleLarge.copy(fontFamily = PoemFont),
                             modifier = Modifier.weight(1f),
                         )
-                        TextButton(onClick = onNewPoem) { Text(stringResource(R.string.new_poem)) }
                         TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.settings)) }
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp))

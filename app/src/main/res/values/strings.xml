@@ -9,6 +9,7 @@
     <string name="body_placeholder">Write your poem…</string>
     <string name="empty_poem_hint">Nothing here yet. Tap Edit to start writing.</string>
     <string name="new_poem">New poem</string>
+    <string name="new_poem_page_hint">A blank page, ready for your next poem.</string>
 
     <string name="delete_poem">Delete poem</string>
     <string name="delete_poem_title">Delete this poem?</string>
@@ -36,6 +37,8 @@
     <string name="no_folder">No folder chosen</string>
     <string name="open_in_file_browser">Open in file browser</string>
     <string name="choose_different_folder">Choose a different folder</string>
-    <string name="change_folder_note">If the new folder already has poems, they are shown instead. If it\'s empty, your current poems are copied into it. Files left in the old folder are not deleted.</string>
+    <string name="change_folder_note">Choosing a different folder loads the poems in that folder. Your current poems stay in the old folder.</string>
+    <string name="switch_folder_title">Switch poems folder?</string>
+    <string name="switch_folder_message">The book will load the poems in the folder you choose. Your current poems will be left in the old folder, where they are now.</string>
     <string name="no_file_browser">No app found to open the folder</string>
 </resources>
