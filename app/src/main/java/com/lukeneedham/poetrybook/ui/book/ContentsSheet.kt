@@ -62,6 +62,7 @@ fun ContentsSheet(
     poems: List<Poem>,
     currentIndex: Int,
     onSelect: (Int) -> Unit,
+    onOpenShelf: () -> Unit,
     onOpenSettings: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -110,6 +111,7 @@ fun ContentsSheet(
                             style = MaterialTheme.typography.titleLarge.copy(fontFamily = PoemFont),
                             modifier = Modifier.weight(1f),
                         )
+                        TextButton(onClick = onOpenShelf) { Text(stringResource(R.string.bookshelf)) }
                         TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.settings)) }
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp))

@@ -16,12 +16,13 @@ import com.lukeneedham.poetrybook.pageturn.PageTurnBook
 import com.lukeneedham.poetrybook.pageturn.rememberPageTurnState
 
 /**
- * The whole app: a book of poems you swipe or tap through, with a contents sheet dropping from
- * the top. The book's last page is always the one for starting a new poem.
+ * One book of poems, which you swipe or tap through, with a contents sheet dropping from the top.
+ * The book's last page is always the one for starting a new poem.
  */
 @Composable
 fun BookScreen(
     viewModel: PoemBookViewModel,
+    onOpenShelf: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -29,7 +30,7 @@ fun BookScreen(
     val pageState = rememberPageTurnState()
     var editing by rememberSaveable { mutableStateOf(false) }
     var contentsOpen by rememberSaveable { mutableStateOf(false) }
-    var shownFolder by rememberSaveable { mutableStateOf(viewModel.folderUri?.toString()) }
+    var shownBook by rememberSaveable { mutableStateOf(viewModel.currentBook?.documentId) }
     val focusManager = LocalFocusManager.current
 
     fun stopEditing() {
@@ -37,11 +38,11 @@ fun BookScreen(
         editing = false
     }
 
-    // A different folder is a different book: start it from the beginning.
-    LaunchedEffect(viewModel.folderUri) {
-        val folder = viewModel.folderUri?.toString()
-        if (folder != shownFolder) {
-            shownFolder = folder
+    // A different book starts from its first page.
+    LaunchedEffect(viewModel.currentBook?.documentId) {
+        val book = viewModel.currentBook?.documentId
+        if (book != null && book != shownBook) {
+            shownBook = book
             editing = false
             pageState.snapTo(0)
         }
@@ -103,6 +104,11 @@ fun BookScreen(
             onSelect = { index ->
                 contentsOpen = false
                 pageState.animateTo(index)
+            },
+            onOpenShelf = {
+                contentsOpen = false
+                stopEditing()
+                onOpenShelf()
             },
             onOpenSettings = {
                 contentsOpen = false

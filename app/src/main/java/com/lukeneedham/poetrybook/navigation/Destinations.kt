@@ -7,6 +7,11 @@ import kotlinx.serialization.Serializable
 @Serializable
 data object Onboarding : NavKey
 
+/** The bookshelf, the app's home. */
+@Serializable
+data object Shelf : NavKey
+
+/** The book being read; which one is held by the view model. */
 @Serializable
 data object Book : NavKey
 

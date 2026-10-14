@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -14,6 +15,7 @@ import com.lukeneedham.poetrybook.ui.book.BookStatus
 import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.onboarding.OnboardingScreen
 import com.lukeneedham.poetrybook.ui.settings.SettingsScreen
+import com.lukeneedham.poetrybook.ui.shelf.ShelfScreen
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 @Composable
@@ -22,7 +24,7 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
         // The start screen depends on whether a poems folder is already set up.
         BookStatus.LOADING -> Box(Modifier.fillMaxSize().background(paperColors().paper))
         BookStatus.NEEDS_FOLDER -> AppNavDisplay(viewModel, start = Onboarding)
-        BookStatus.READY -> AppNavDisplay(viewModel, start = Book)
+        BookStatus.READY -> AppNavDisplay(viewModel, start = Shelf)
     }
 }
 
@@ -32,7 +34,11 @@ private fun AppNavDisplay(viewModel: PoemBookViewModel, start: NavKey) {
 
     NavDisplay(
         backStack = backStack,
-        onBack = { backStack.removeLastOrNull() },
+        onBack = {
+            // Leaving a book by going back puts it on the shelf, like the shelf button does.
+            if (backStack.lastOrNull() == Book) viewModel.closeBook()
+            backStack.removeLastOrNull()
+        },
         entryProvider = entryProvider {
             entry<Onboarding> {
                 OnboardingScreen(
@@ -42,15 +48,37 @@ private fun AppNavDisplay(viewModel: PoemBookViewModel, start: NavKey) {
                             onDone(ok)
                             if (ok) {
                                 backStack.clear()
-                                backStack.add(Book)
+                                backStack.add(Shelf)
                             }
                         }
                     },
                 )
             }
+            entry<Shelf> {
+                LaunchedEffect(Unit) { viewModel.refreshBooks() }
+                ShelfScreen(
+                    books = viewModel.books,
+                    onOpenBook = { book ->
+                        viewModel.openBook(book) { ok -> if (ok) backStack.add(Book) }
+                    },
+                    onCreateBook = { name, onDone -> viewModel.createBook(name) { onDone(it != null) } },
+                    onOpenSettings = { backStack.add(Settings) },
+                )
+            }
             entry<Book> {
+                // After the app was killed the back stack comes back but the open book doesn't.
+                if (viewModel.currentBook == null) {
+                    LaunchedEffect(Unit) {
+                        if (backStack.lastOrNull() == Book) backStack.removeLastOrNull()
+                    }
+                    return@entry
+                }
                 BookScreen(
                     viewModel = viewModel,
+                    onOpenShelf = {
+                        viewModel.closeBook()
+                        backStack.removeLastOrNull()
+                    },
                     onOpenSettings = { backStack.add(Settings) },
                 )
             }
@@ -58,7 +86,16 @@ private fun AppNavDisplay(viewModel: PoemBookViewModel, start: NavKey) {
                 SettingsScreen(
                     folderUri = viewModel.folderUri,
                     onBack = { backStack.removeLastOrNull() },
-                    onFolderPicked = { uri, onDone -> viewModel.chooseFolder(uri, onDone) },
+                    onFolderPicked = { uri, onDone ->
+                        viewModel.chooseFolder(uri) { ok ->
+                            onDone(ok)
+                            if (ok) {
+                                // The old folder's books are gone from the shelf; start from the new one.
+                                backStack.clear()
+                                backStack.add(Shelf)
+                            }
+                        }
+                    },
                 )
             }
         },

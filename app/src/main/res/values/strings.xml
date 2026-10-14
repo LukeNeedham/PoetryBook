@@ -17,8 +17,6 @@
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
 
-    <string name="welcome_title">Your First Page</string>
-    <string name="welcome_body">Swipe the page\nand it will turn.\n\nTap Edit above\nto make these lines your own,\nthen open Contents\nto find your way back.</string>
 
     <string name="back">Back</string>
     <string name="settings">Settings</string>
@@ -28,17 +26,30 @@
     <string name="onboarding_welcome_body">Write your own poems, one to a page, and turn through them like a real book.</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_folder_title">Where should your poems live?</string>
-    <string name="onboarding_folder_body">Each poem is saved as a plain text file in a folder you choose, named after the poem. Because the folder is outside the app, your poems are still there if you reinstall it.\n\nPick or create a folder such as Documents/Poems, then allow PoetryBook to use it.</string>
+    <string name="onboarding_folder_body">Your poems are saved as plain text files, named after each poem, in a folder you choose. Every folder inside it becomes a book on your bookshelf, and text files directly in it go in a book called Misc. Because it\'s outside the app, your poems are still there if you reinstall.
+
+Pick or create a folder such as Documents/Poems, then allow PoetryBook to use it.</string>
     <string name="onboarding_folder_failed">That folder couldn\'t be used. Please choose another one.</string>
     <string name="onboarding_folder_lost">PoetryBook can no longer reach your poems folder. Choose it again, or pick a new one.</string>
 
     <string name="poems_folder">Poems folder</string>
-    <string name="poems_folder_description">Every poem is a text file here, named after its title.</string>
+    <string name="poems_folder_description">Every folder inside it is a book. Each poem is a text file in its book, named after its title. Text files directly in this folder go in the Misc book.</string>
     <string name="no_folder">No folder chosen</string>
     <string name="open_in_file_browser">Open in file browser</string>
     <string name="choose_different_folder">Choose a different folder</string>
-    <string name="change_folder_note">Choosing a different folder loads the poems in that folder. Your current poems stay in the old folder.</string>
+    <string name="change_folder_note">Choosing a different folder loads the books in that folder. Your current poems stay in the old folder.</string>
     <string name="switch_folder_title">Switch poems folder?</string>
-    <string name="switch_folder_message">The book will load the poems in the folder you choose. Your current poems will be left in the old folder, where they are now.</string>
+    <string name="switch_folder_message">The bookshelf will show the books in the folder you choose. Your current books and poems will be left in the old folder, where they are now.</string>
     <string name="no_file_browser">No app found to open the folder</string>
+
+    <string name="bookshelf">Bookshelf</string>
+    <string name="misc_book">Misc</string>
+    <string name="new_book">New book</string>
+    <string name="book_name">Book name</string>
+    <string name="new_book_failed">Couldn\'t create that book.</string>
+    <string name="create">Create</string>
+    <plurals name="poem_count">
+        <item quantity="one">%d poem</item>
+        <item quantity="other">%d poems</item>
+    </plurals>
 </resources>

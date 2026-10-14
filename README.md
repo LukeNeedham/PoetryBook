@@ -7,18 +7,20 @@ An Android book for your own poetry. Every page is a poem you wrote: swipe acros
 - **Page-turn swipe**: pages peel off with a page-curl effect (the geometry comes from [TurnThePage](https://github.com/LukeNeedham/TurnThePage); see `pageturn/`)
 - A toolbar with a ribbon button for **Contents** and a pencil to **edit** the poem (title and text); **Delete poem** while editing
 - **Contents** drops down from the top like a reversed bottom sheet, listing every poem. Tap one to turn straight to it
-- **Each poem is its own `.txt` file**, named after the poem's title, in a folder you choose, outside the app, so your poems survive reinstalling it
+- **Bookshelf**: the folder you choose is a library. Each subfolder is a **book**, shown as a cover on the shelf; text files directly in the folder are gathered into a book called **Misc**. You can create new books from the shelf, and get back to it from Contents
+- **Each poem is its own `.txt` file**, named after the poem's title, inside its book's folder, outside the app, so your poems survive reinstalling it
 - **Onboarding** has a step to pick that folder and grant PoetryBook access to it (Android's folder picker, with a persisted permission)
-- **Settings** (from the Contents sheet) shows the folder, can open it in the system file browser, and can switch to a different folder
+- **Settings** (from the shelf or the Contents sheet) shows the folder, can open it in the system file browser, and can switch to a different folder
 
 ## Code layout
 
 | Package | What |
 | --- | --- |
 | `pageturn/` | The page-turn UI. `PageTurnBook` shows composable pages one at a time and curls between them; `PageTurnState` drives drags and settle animations. `geometry/` and `turn/` are the framework-free curl maths copied from TurnThePage; `CurlPainter` draws the fold. No EPUB / reading code. |
-| `ui/book/` | `BookScreen` (the app), `PoemPage` (read/edit one poem), `ContentsSheet` (the top drop-down), `PoemBookViewModel` |
+| `ui/shelf/` | `ShelfScreen`, the bookshelf |
+| `ui/book/` | `BookScreen` (one book), `PoemPage` (read/edit one poem), `NewPoemPage`, `ContentsSheet` (the top drop-down), `PoemBookViewModel` (the library and the open book) |
 | `ui/onboarding/`, `ui/settings/` | First-run folder setup and the settings page |
-| `data/` | `Poem`; `PoemFolder` (the picked folder, via the Storage Access Framework); `PoemRepository` (poems ⇄ files, renaming files as titles change); `AppSettings` (chosen folder and page order) |
+| `data/` | `Poem`; `Library` (the picked folder as books), `PoemFolder` (a directory in it, via the Storage Access Framework); `PoemRepository` (poems ⇄ files, renaming files as titles change); `AppSettings` (chosen folder and each book's page order) |
 
 ## Stack
 
@@ -40,9 +42,10 @@ See the [setup guide](https://github.com/LukeNeedham/ci-workflows/blob/main/docs
 
 ## How poems are stored
 
+- In the chosen folder, every subfolder (except hidden ones starting with `.`) is a book, and `.txt` files directly in the folder form the Misc book. Misc is always on the shelf.
 - A poem's file name is its title (characters file systems reject are dropped; a blank title is `Untitled`; clashes become `Title (2).txt`). The file's contents are the poem text.
 - Editing a title renames the file; deleting a poem deletes its file. Changes are written shortly after you stop typing and when the app goes to the background.
-- Page order is kept in the app's settings, since text files can't hold it. After a reinstall, poems come back in alphabetical order.
+- Each book's page order is kept in the app's settings, since text files can't hold it. After a reinstall, poems come back in alphabetical order.
 - Poems are read from the folder when the app starts; edits made to the files while the app is open are picked up on the next start.
-- Choosing a different folder loads the poems in that folder; your current poems stay in the old folder. (Planned: one folder per book, with a bookshelf for switching between books.)
+- Choosing a different folder loads the books in that folder; your current books and poems stay in the old folder.
 - A new poem has no file until something is written in it.

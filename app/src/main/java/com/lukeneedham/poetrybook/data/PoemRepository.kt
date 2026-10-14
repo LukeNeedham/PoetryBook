@@ -27,7 +27,7 @@ class PoemRepository(
     /** Reads every poem in the folder, in saved page order. Throws [IOException] if it can't be read. */
     fun load(): List<Poem> {
         tracked.clear()
-        val order = settings.pageOrder(folder.treeUri)
+        val order = settings.pageOrder(folder.key)
         val files = folder.list().sortedWith(
             compareBy<PoemFolder.File> { file ->
                 order.indexOf(file.name).takeIf { it >= 0 } ?: Int.MAX_VALUE
@@ -112,7 +112,7 @@ class PoemRepository(
             }
         }
 
-        settings.savePageOrder(folder.treeUri, poems.mapNotNull { tracked[it.id]?.file?.name })
+        settings.savePageOrder(folder.key, poems.mapNotNull { tracked[it.id]?.file?.name })
         return inSync
     }
 }

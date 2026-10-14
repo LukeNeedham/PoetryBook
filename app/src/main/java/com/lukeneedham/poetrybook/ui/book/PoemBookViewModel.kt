@@ -10,8 +10,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.AppSettings
+import com.lukeneedham.poetrybook.data.Book
+import com.lukeneedham.poetrybook.data.Library
 import com.lukeneedham.poetrybook.data.Poem
-import com.lukeneedham.poetrybook.data.PoemFolder
 import com.lukeneedham.poetrybook.data.PoemRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,13 +38,15 @@ enum class BookStatus {
 }
 
 /**
- * Owns the poems in the book. They live as text files in a folder the user chose; this keeps
- * them in memory while the app is open and writes changes back shortly after each edit.
+ * Owns the library and the book being read. Poems live as text files in the folder the user
+ * chose, one subfolder per book; this keeps the open book's poems in memory and writes changes
+ * back shortly after each edit.
  */
 class PoemBookViewModel(application: Application) : AndroidViewModel(application) {
     private val settings = AppSettings(application)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val storageLock = Mutex()
+    private var library: Library? = null
     private var repository: PoemRepository? = null
     private var saveJob: Job? = null
 
@@ -57,7 +60,19 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     var folderUri: Uri? by mutableStateOf(null)
         private set
 
-    /** The poems in page order. The book's last page, for adding a poem, is not one of these. */
+    /** Every book in the chosen folder, for the bookshelf. */
+    var books: List<Book> by mutableStateOf(emptyList())
+        private set
+
+    /** The book being read, or null while on the bookshelf. */
+    var currentBook: Book? by mutableStateOf(null)
+        private set
+
+    /** True while the bookshelf is looking at the folder. */
+    var loadingBooks by mutableStateOf(false)
+        private set
+
+    /** The open book's poems in page order. The book's last page, for adding a poem, isn't one of these. */
     val poems = mutableStateListOf<Poem>()
 
     init {
@@ -70,19 +85,20 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
             status = BookStatus.NEEDS_FOLDER
             return
         }
-        val loaded = if (hasAccess(uri)) openFolder(uri) else null
-        if (loaded == null) {
+        val lib = if (hasAccess(uri)) openLibrary(uri) else null
+        val found = lib?.let { listBooks(it) }
+        if (lib == null || found == null) {
             folderLost = true
             status = BookStatus.NEEDS_FOLDER
             return
         }
-        adopt(uri, loaded.first, loaded.second, welcomeIfEmpty = false)
+        adopt(uri, lib, found)
         status = BookStatus.READY
     }
 
     /**
      * Starts using [uri], a folder just picked with the system picker, and calls [onDone] with
-     * whether it worked. The book then shows the poems in that folder. The poems from the previous
+     * whether it worked. The shelf then shows the books in that folder. Poems from the previous
      * folder stay there, untouched.
      */
     fun chooseFolder(uri: Uri, onDone: (Boolean) -> Unit) {
@@ -93,8 +109,9 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                 )
             }.isSuccess
-            val opened = if (granted) openFolder(uri) else null
-            if (opened == null) {
+            val lib = if (granted) openLibrary(uri) else null
+            val found = lib?.let { listBooks(it) }
+            if (lib == null || found == null) {
                 onDone(false)
                 return@launch
             }
@@ -104,29 +121,81 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
             saveNow()
 
             val previous = folderUri
-            // Someone setting up for the first time starts with a poem to show what a page looks like.
-            adopt(uri, opened.first, opened.second, welcomeIfEmpty = previous == null)
+            adopt(uri, lib, found)
             if (previous != null && previous != uri) releaseAccess(previous)
             status = BookStatus.READY
-            saveNow()
             onDone(true)
         }
     }
 
-    private suspend fun openFolder(uri: Uri): Pair<PoemRepository, List<Poem>>? =
-        withContext(Dispatchers.IO) {
-            val repo = PoemRepository(PoemFolder(getApplication(), uri), settings)
-            runCatching { repo to repo.load() }.getOrNull()
-        }
+    private fun openLibrary(uri: Uri) =
+        Library(getApplication(), uri, getApplication<Application>().getString(R.string.misc_book))
 
-    private fun adopt(uri: Uri, repo: PoemRepository, existing: List<Poem>, welcomeIfEmpty: Boolean) {
-        repository = repo
+    private suspend fun listBooks(lib: Library): List<Book>? =
+        withContext(Dispatchers.IO) { runCatching { lib.books() }.getOrNull() }
+
+    private fun adopt(uri: Uri, lib: Library, found: List<Book>) {
+        library = lib
+        repository = null
+        currentBook = null
+        poems.clear()
+        books = found
         folderUri = uri
         folderLost = false
         settings.folderUri = uri
-        poems.clear()
-        poems.addAll(existing)
-        if (existing.isEmpty() && welcomeIfEmpty) poems.add(welcomePoem())
+    }
+
+    /** Looks at the folder again, e.g. when the bookshelf is shown, to pick up new books and counts. */
+    fun refreshBooks() {
+        val lib = library ?: return
+        scope.launch {
+            loadingBooks = true
+            listBooks(lib)?.let { books = it }
+            loadingBooks = false
+        }
+    }
+
+    /** Opens [book] and calls [onDone] with whether it could be read. */
+    fun openBook(book: Book, onDone: (Boolean) -> Unit) {
+        val lib = library ?: return onDone(false)
+        scope.launch {
+            val repo = PoemRepository(lib.folderOf(book), settings)
+            val loaded = withContext(Dispatchers.IO) { runCatching { repo.load() }.getOrNull() }
+            if (loaded == null) {
+                onDone(false)
+                return@launch
+            }
+            saveJob?.cancel()
+            saveNow()
+            repository = repo
+            poems.clear()
+            poems.addAll(loaded)
+            currentBook = book
+            onDone(true)
+        }
+    }
+
+    /** Puts the open book back on the shelf, saving it first. */
+    fun closeBook() {
+        if (currentBook == null) return
+        saveJob?.cancel()
+        scope.launch {
+            saveNow()
+            repository = null
+            currentBook = null
+            poems.clear()
+            refreshBooks()
+        }
+    }
+
+    /** Creates a book called [name] and calls [onDone] with it, or null if that failed. */
+    fun createBook(name: String, onDone: (Book?) -> Unit) {
+        val lib = library ?: return onDone(null)
+        scope.launch {
+            val created = withContext(Dispatchers.IO) { runCatching { lib.createBook(name) }.getOrNull() }
+            if (created != null) refreshBooks()
+            onDone(created)
+        }
     }
 
     private fun hasAccess(uri: Uri): Boolean =
@@ -193,7 +262,7 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** Returns true if the folder now matches the book. */
+    /** Returns true if the folder now matches the open book. */
     private suspend fun saveNow(): Boolean {
         val repo = repository ?: return true
         val snapshot = poems.toList()
@@ -208,12 +277,6 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     override fun onCleared() {
         scope.cancel()
     }
-
-    private fun welcomePoem() = Poem(
-        id = newId(),
-        title = getApplication<Application>().getString(R.string.welcome_title),
-        body = getApplication<Application>().getString(R.string.welcome_body),
-    )
 
     private fun newId() = UUID.randomUUID().toString()
 

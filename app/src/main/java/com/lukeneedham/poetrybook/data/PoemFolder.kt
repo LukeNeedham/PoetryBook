@@ -7,37 +7,72 @@ import android.provider.DocumentsContract.Document
 import java.io.IOException
 
 /**
- * The folder the user picked with the system folder picker, holding one `.txt` file per poem.
+ * A directory inside the folder the user picked with the system folder picker, holding one `.txt`
+ * file per poem. With the default [directoryDocumentId] this is the picked folder itself; a
+ * subfolder of it is a book.
  *
  * Goes through the Storage Access Framework, so it works for any folder the user granted
  * (internal storage, SD card, cloud providers…) and survives the app being reinstalled.
  * All calls are blocking and must run off the main thread. Failures throw [IOException].
  */
-class PoemFolder(context: Context, val treeUri: Uri) {
-    private val resolver = context.contentResolver
-    private val rootDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
-    private val rootUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, rootDocumentId)
+class PoemFolder(
+    context: Context,
+    val treeUri: Uri,
+    val directoryDocumentId: String = DocumentsContract.getTreeDocumentId(treeUri),
+) {
+    internal val appContext: Context = context.applicationContext
+    private val resolver = appContext.contentResolver
+    private val directoryUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, directoryDocumentId)
+
+    /** Identifies this directory in app settings, e.g. for the saved page order. */
+    val key: String = "$treeUri|$directoryDocumentId"
+
+    /** A subfolder; in the library, a book. */
+    data class SubFolder(val documentId: String, val name: String)
 
     /** A poem file. [name] is the file name without the `.txt` extension. */
     data class File(val uri: Uri, val name: String)
 
-    fun list(): List<File> = io {
-        val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, rootDocumentId)
+    private class Child(val documentId: String, val name: String, val isDirectory: Boolean)
+
+    private fun children(): List<Child> = io {
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, directoryDocumentId)
         val projection = arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_MIME_TYPE)
-        val cursor = resolver.query(children, projection, null, null, null)
+        val cursor = resolver.query(childrenUri, projection, null, null, null)
             ?: throw IOException("Folder can't be listed")
         cursor.use {
             buildList {
                 while (it.moveToNext()) {
                     val name = it.getString(1) ?: continue
-                    if (it.getString(2) == Document.MIME_TYPE_DIR) continue
-                    if (!name.endsWith(PoemFileExtension, ignoreCase = true)) continue
-                    val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, it.getString(0))
-                    add(File(uri, name.dropLast(PoemFileExtension.length)))
+                    add(Child(it.getString(0), name, it.getString(2) == Document.MIME_TYPE_DIR))
                 }
             }
         }
     }
+
+    /** The poem files directly in this directory. */
+    fun list(): List<File> = children()
+        .filter { !it.isDirectory && it.name.endsWith(PoemFileExtension, ignoreCase = true) }
+        .map {
+            val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, it.documentId)
+            File(uri, it.name.dropLast(PoemFileExtension.length))
+        }
+
+    /** The folders directly in this directory, ignoring hidden ones such as `.thumbnails`. */
+    fun listSubFolders(): List<SubFolder> = children()
+        .filter { it.isDirectory && !it.name.startsWith(".") }
+        .map { SubFolder(it.documentId, it.name) }
+
+    /** Creates a folder called [name] here. The provider may adjust the name, so use the result. */
+    fun createSubFolder(name: String): SubFolder = io {
+        val uri = DocumentsContract.createDocument(resolver, directoryUri, Document.MIME_TYPE_DIR, name)
+            ?: throw IOException("Can't create $name")
+        SubFolder(DocumentsContract.getDocumentId(uri), displayName(uri) ?: name)
+    }
+
+    /** The poem folder for [subFolder]. */
+    fun subFolder(subFolder: SubFolder): PoemFolder =
+        PoemFolder(appContext, treeUri, subFolder.documentId)
 
     fun read(file: File): String = io {
         resolver.openInputStream(file.uri)?.bufferedReader()?.use { it.readText() }
@@ -52,7 +87,7 @@ class PoemFolder(context: Context, val treeUri: Uri) {
 
     /** Creates an empty file called [name]. The provider may adjust the name, so use the result. */
     fun create(name: String): File = io {
-        val uri = DocumentsContract.createDocument(resolver, rootUri, "text/plain", name + PoemFileExtension)
+        val uri = DocumentsContract.createDocument(resolver, directoryUri, "text/plain", name + PoemFileExtension)
             ?: throw IOException("Can't create $name")
         File(uri, displayName(uri)?.removeExtension() ?: name)
     }
