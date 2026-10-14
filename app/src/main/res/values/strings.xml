@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">PoetryBook</string>
+    <string name="home_title">PoetryBook</string>
+    <string name="home_subtitle">Your poems will live here.</string>
+</resources>
