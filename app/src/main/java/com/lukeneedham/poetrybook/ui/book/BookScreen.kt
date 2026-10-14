@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun BookScreen(
     viewModel: PoemBookViewModel,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val poems = viewModel.poems
@@ -80,6 +81,10 @@ fun BookScreen(
                     withFrameNanos { }
                     pageState.animateTo(index)
                 }
+            },
+            onOpenSettings = {
+                contentsOpen = false
+                onOpenSettings()
             },
             onDismiss = { contentsOpen = false },
         )

@@ -63,6 +63,7 @@ fun ContentsSheet(
     currentIndex: Int,
     onSelect: (Int) -> Unit,
     onNewPoem: () -> Unit,
+    onOpenSettings: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -111,6 +112,7 @@ fun ContentsSheet(
                             modifier = Modifier.weight(1f),
                         )
                         TextButton(onClick = onNewPoem) { Text(stringResource(R.string.new_poem)) }
+                        TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.settings)) }
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp))
 

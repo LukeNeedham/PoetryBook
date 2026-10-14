@@ -18,4 +18,24 @@
 
     <string name="welcome_title">Your First Page</string>
     <string name="welcome_body">Swipe the page\nand it will turn.\n\nTap Edit above\nto make these lines your own,\nthen open Contents\nto find your way back.</string>
+
+    <string name="back">Back</string>
+    <string name="settings">Settings</string>
+    <string name="choose_folder">Choose folder</string>
+
+    <string name="onboarding_welcome_title">Your book of poems</string>
+    <string name="onboarding_welcome_body">Write your own poems, one to a page, and turn through them like a real book.</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_folder_title">Where should your poems live?</string>
+    <string name="onboarding_folder_body">Each poem is saved as a plain text file in a folder you choose, named after the poem. Because the folder is outside the app, your poems are still there if you reinstall it.\n\nPick or create a folder such as Documents/Poems, then allow PoetryBook to use it.</string>
+    <string name="onboarding_folder_failed">That folder couldn\'t be used. Please choose another one.</string>
+    <string name="onboarding_folder_lost">PoetryBook can no longer reach your poems folder. Choose it again, or pick a new one.</string>
+
+    <string name="poems_folder">Poems folder</string>
+    <string name="poems_folder_description">Every poem is a text file here, named after its title.</string>
+    <string name="no_folder">No folder chosen</string>
+    <string name="open_in_file_browser">Open in file browser</string>
+    <string name="choose_different_folder">Choose a different folder</string>
+    <string name="change_folder_note">If the new folder already has poems, they are shown instead. If it\'s empty, your current poems are copied into it. Files left in the old folder are not deleted.</string>
+    <string name="no_file_browser">No app found to open the folder</string>
 </resources>

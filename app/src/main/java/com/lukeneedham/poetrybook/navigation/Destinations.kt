@@ -5,4 +5,10 @@ import kotlinx.serialization.Serializable
 
 /** Navigation 3 back stack keys. Add one per screen. */
 @Serializable
+data object Onboarding : NavKey
+
+@Serializable
 data object Book : NavKey
+
+@Serializable
+data object Settings : NavKey
