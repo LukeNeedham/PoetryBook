@@ -7,9 +7,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.unit.dp
+import com.lukeneedham.poetrybook.ui.shelf.BookCoverFace
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -231,18 +235,21 @@ fun BookScreen(
                 if (otherBooks.isEmpty()) {
                     Text(stringResource(R.string.move_poem_no_books))
                 } else {
-                    LazyColumn {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         items(otherBooks, key = { it.id }) { book ->
-                            TextButton(
-                                onClick = {
+                            BookCoverFace(
+                                book = book,
+                                showCount = false,
+                                modifier = Modifier.clickable {
                                     choosingBook = false
                                     stopEditing()
                                     pageState.snapTo(viewModel.movePoemToBook(poemToMove.id, book.id) + 1)
                                 },
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(book.name, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
-                            }
+                            )
                         }
                     }
                 }

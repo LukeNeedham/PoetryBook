@@ -26,6 +26,19 @@ class AppSettingsTest {
 
     private fun prefs() = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
+    // --- Shelf columns ---
+
+    @Test
+    fun `the shelf shows two books a row until the user zooms, and remembers the choice within 1 to 5`() {
+        assertEquals(2, settings.shelfColumns)
+        settings.shelfColumns = 4
+        assertEquals(4, AppSettings(context).shelfColumns)
+        settings.shelfColumns = 9
+        assertEquals(5, settings.shelfColumns)
+        settings.shelfColumns = 0
+        assertEquals(1, settings.shelfColumns)
+    }
+
     // --- Sort ---
 
     @Test

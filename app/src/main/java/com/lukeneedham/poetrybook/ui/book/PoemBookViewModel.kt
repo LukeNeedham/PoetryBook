@@ -56,6 +56,15 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     var bookSort by mutableStateOf(settings.bookSort)
         private set
 
+    /** How many books the bookshelf shows in a row; pinching the shelf changes it. */
+    var shelfColumns by mutableStateOf(settings.shelfColumns)
+        private set
+
+    fun changeShelfColumns(columns: Int) {
+        shelfColumns = columns.coerceIn(AppSettings.MIN_SHELF_COLUMNS, AppSettings.MAX_SHELF_COLUMNS)
+        settings.shelfColumns = shelfColumns
+    }
+
     /** [books] in the order the bookshelf shows them. */
     val shelfBooks: List<Book>
         get() = books.sortedFor(bookSort)

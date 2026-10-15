@@ -62,6 +62,8 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                 ShelfScreen(
                     books = viewModel.shelfBooks,
                     sort = viewModel.bookSort,
+                    columns = viewModel.shelfColumns,
+                    onColumnsChange = viewModel::changeShelfColumns,
                     onSortChange = viewModel::sortBooks,
                     onOpenBook = { book ->
                         viewModel.openBook(book) { ok -> if (ok) backStack.add(Book) }

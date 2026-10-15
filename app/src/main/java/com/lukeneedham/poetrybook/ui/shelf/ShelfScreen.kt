@@ -19,7 +19,14 @@ import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import com.lukeneedham.poetrybook.data.AppSettings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.BoxScope
@@ -105,6 +112,8 @@ private const val NewBook = ""
 fun ShelfScreen(
     books: List<Book>,
     sort: BookSort,
+    columns: Int,
+    onColumnsChange: (Int) -> Unit,
     onSortChange: (BookSort) -> Unit,
     onOpenBook: (Book) -> Unit,
     onCreateBook: (name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
@@ -169,11 +178,11 @@ fun ShelfScreen(
 
         LazyVerticalGrid(
             state = gridState,
-            columns = GridCells.Adaptive(minSize = 150.dp),
+            columns = GridCells.Fixed(columns),
             contentPadding = PaddingValues(24.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().pinchToChangeColumns(columns, onColumnsChange),
         ) {
             items(books, key = { it.id }) { book ->
                 if (editing == book.id) {
@@ -321,23 +330,107 @@ private val NewBookLabelPadding = 16.dp
 
 private val CoverTitlePadding = Modifier.padding(start = 26.dp, end = 14.dp)
 
-/** A book's cover in [color], with its spine; [content] goes on top. */
+/** The width a cover is drawn at with the default two books to a row, which its sizes are written for. */
+private val ReferenceCoverWidth = 150.dp
+
+/**
+ * Pinching the shelf changes how many books are in a row: spreading the fingers makes the books
+ * bigger (fewer per row), pinching makes them smaller. A single finger is left alone, so the shelf still scrolls.
+ */
+private fun Modifier.pinchToChangeColumns(columns: Int, onColumnsChange: (Int) -> Unit): Modifier =
+    pointerInput(columns) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var zoom = 1f
+            do {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (event.changes.count { it.pressed } >= 2) {
+                    zoom *= event.calculateZoom()
+                    event.changes.forEach { it.consume() }
+                    val target = when {
+                        zoom > 1.3f -> columns - 1
+                        zoom < 0.77f -> columns + 1
+                        else -> columns
+                    }.coerceIn(AppSettings.MIN_SHELF_COLUMNS, AppSettings.MAX_SHELF_COLUMNS)
+                    if (target != columns) {
+                        onColumnsChange(target)
+                        // One step per pinch: swallow the rest of this gesture.
+                        do {
+                            val rest = awaitPointerEvent(PointerEventPass.Initial)
+                            rest.changes.forEach { it.consume() }
+                        } while (rest.changes.any { it.pressed })
+                        return@awaitEachGesture
+                    }
+                }
+            } while (event.changes.any { it.pressed })
+        }
+    }
+
+/**
+ * A book's cover in [color], with its spine; [content] goes on top, given how much bigger or
+ * smaller than the shelf's usual cover this one is drawn, so what's on it can be sized to match.
+ */
 @Composable
-private fun CoverBox(color: Color, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    Box(
+private fun CoverBox(
+    color: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.(scale: Float) -> Unit,
+) {
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(0.72f)
             .background(color, CoverShape),
     ) {
+        val scale = (maxWidth / ReferenceCoverWidth).coerceIn(0.2f, 3f)
         // The spine.
         Box(
             Modifier
-                .width(14.dp)
+                .width(14.dp * scale)
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.22f), RoundedCornerShape(topStart = 3.dp, bottomStart = 3.dp)),
         )
-        content()
+        content(scale)
+    }
+}
+
+/**
+ * A book as the shelf shows it: its cover with the name centred on it and, if [showCount], how
+ * many poems it holds. Everything scales with the width the cover is given, so a small one in a
+ * dialog looks like the shelf's, only smaller.
+ */
+@Composable
+internal fun BookCoverFace(book: Book, modifier: Modifier = Modifier, showCount: Boolean = true) {
+    CoverBox(color = coverColor(book), modifier = modifier) { scale ->
+        val titleStyle = coverTitleStyle()
+        val padding = Modifier.padding(start = 26.dp * scale, end = 14.dp * scale)
+        Text(
+            text = book.name,
+            style = titleStyle.copy(
+                fontSize = titleStyle.fontSize * scale,
+                lineHeight = titleStyle.lineHeight * scale,
+            ),
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .then(padding),
+        )
+        if (showCount) {
+            val countStyle = MaterialTheme.typography.bodySmall
+            Text(
+                text = pluralStringResource(R.plurals.poem_count, book.poemCount, book.poemCount),
+                style = countStyle.copy(
+                    fontSize = countStyle.fontSize * scale,
+                    lineHeight = countStyle.lineHeight * scale,
+                ),
+                color = CoverTextColor.copy(alpha = 0.75f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .then(padding)
+                    .padding(bottom = 12.dp * scale),
+            )
+        }
     }
 }
 
@@ -375,8 +468,8 @@ internal fun MiniBook(name: String, color: Int?, modifier: Modifier = Modifier) 
 private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        CoverBox(
-            color = coverColor(book),
+        BookCoverFace(
+            book = book,
             modifier = Modifier.combinedClickable(
                 onClick = onClick,
                 onLongClick = {
@@ -384,26 +477,7 @@ private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
                     onEdit()
                 },
             ),
-        ) {
-            Text(
-                text = book.name,
-                style = coverTitleStyle(),
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .then(CoverTitlePadding),
-            )
-            Text(
-                text = pluralStringResource(R.plurals.poem_count, book.poemCount, book.poemCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = CoverTextColor.copy(alpha = 0.75f),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .then(CoverTitlePadding)
-                    .padding(bottom = 12.dp),
-            )
-        }
+        )
     }
 }
 
@@ -620,6 +694,8 @@ private fun ShelfPreview() {
                 Book("c", "Misc", 0),
             ),
             sort = BookSort.ALPHABETICAL,
+            columns = 2,
+            onColumnsChange = {},
             onSortChange = {},
             onOpenBook = {},
             onDeleteBook = { _, _ -> },
