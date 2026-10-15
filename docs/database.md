@@ -120,6 +120,12 @@ What to do instead:
 4. Test the migration with `MigrationTestHelper` against the old schema JSON: create the old
    database, insert rows, migrate, and assert that every row and relation is still there.
 
+`NoDestructiveMigrationTest` (a unit test, so it fails the build) enforces the first rule mechanically: it
+scans the app's source code, ignoring comments, and fails on any `fallbackToDestructiveMigration…`
+call, `clearAllTables` or `deleteDatabase`. It cannot prove that a migration keeps every row; that is
+what the per-migration `MigrationTestHelper` test is for. If the guard ever fails, fix the code; do not
+edit the guard.
+
 Version 1 is the first schema. As long as there is no released data, nothing needs migrating, but
 the rule applies from the first release on, and adding the fallback "just while developing" is how
 it ends up shipped.
