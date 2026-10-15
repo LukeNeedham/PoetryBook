@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.debounce
 
@@ -72,6 +73,7 @@ fun NotepadSheet(
     }
 }
 
+@OptIn(FlowPreview::class) // debounce
 @Composable
 private fun NotepadField(viewModel: PoemBookViewModel, poemId: String, initial: String) {
     val state = rememberTextFieldState(initial)
