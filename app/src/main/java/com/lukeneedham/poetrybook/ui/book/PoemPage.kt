@@ -61,6 +61,7 @@ fun PoemPage(
     pageNumber: Int,
     editing: Boolean,
     focusSignal: Int = 0,
+    onDelete: (() -> Unit)? = null,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -192,7 +193,21 @@ fun PoemPage(
                 }
             }
 
-            if (!editing) {
+            if (editing) {
+                // Deleting is part of editing, and sits here so the toolbar never changes.
+                if (onDelete != null) {
+                    TextButton(
+                        onClick = onDelete,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.delete_poem),
+                            style = MaterialTheme.typography.labelLarge.copy(fontFamily = PoemFont),
+                            color = colors.faintInk,
+                        )
+                    }
+                }
+            } else {
                 Text(
                     text = pageNumber.toString(),
                     style = MaterialTheme.typography.labelLarge.copy(fontFamily = PoemFont),

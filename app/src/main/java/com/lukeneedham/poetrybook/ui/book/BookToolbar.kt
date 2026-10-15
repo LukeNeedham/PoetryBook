@@ -21,7 +21,7 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
  * The buttons along the top of the book: the bookshelf and a ribbon for the contents on the left,
- * and on the right the poem's history, its notepad, a pencil to edit it, and while editing a bin to delete it.
+ * and on the right the poem's history, its notepad, and a pencil to edit it.
  * The history and notepad only work for a poem that has been saved, so they are greyed out for the
  * blank page at the end.
  *
@@ -32,14 +32,12 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 @Composable
 internal fun BookToolbar(
     editing: Boolean,
-    canDelete: Boolean,
     canEdit: Boolean,
     hasPoem: Boolean,
     onOpenHistory: () -> Unit,
     onOpenNotepad: () -> Unit,
     onOpenShelf: () -> Unit,
     onOpenContents: () -> Unit,
-    onDelete: () -> Unit,
     onToggleEditing: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -80,16 +78,6 @@ internal fun BookToolbar(
                     contentDescription = stringResource(R.string.notepad),
                     tint = colors.accent.copy(alpha = if (hasPoem) 1f else 0.35f),
                 )
-            }
-            // Deleting is part of editing. Greyed out while there is nothing written to delete.
-            if (editing) {
-                IconButton(onClick = onDelete, enabled = canDelete) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_trash),
-                        contentDescription = stringResource(R.string.delete_poem),
-                        tint = colors.accent.copy(alpha = if (canDelete) 1f else 0.35f),
-                    )
-                }
             }
             // The contents page has no poem to edit.
             IconButton(onClick = onToggleEditing, enabled = editing || canEdit) {
