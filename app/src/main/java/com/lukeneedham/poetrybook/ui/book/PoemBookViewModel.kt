@@ -18,6 +18,7 @@ import com.lukeneedham.poetrybook.data.DirectoryImporter
 import com.lukeneedham.poetrybook.data.ImportResult
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.data.PoemStore
+import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.PoemVersion
 import com.lukeneedham.poetrybook.data.db.PoetryDatabase
 import com.lukeneedham.poetrybook.data.sortedFor
@@ -194,6 +195,21 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
+     * Moves the poem to the end of the book [bookId] and returns the index of the page to show
+     * instead. The poem must already be stored: finish its edit with [commit] first.
+     */
+    fun movePoemToBook(id: String, bookId: String): Int {
+        val book = currentBook
+        val index = poems.indexOfFirst { it.id == id }
+        if (index < 0 || book == null || book.id == bookId || id !in stored) return index.coerceAtLeast(0)
+        poems.removeAt(index)
+        stored.remove(id)
+        keepOneBlankPoemLast()
+        scope.launch { runCatching { locked { store.movePoem(id, bookId) } } }
+        return index.coerceAtMost(poems.lastIndex)
+    }
+
+    /**
      * Moves the poem at page [from] to page [to]. The blank poem always stays last, so neither
      * index may be that page.
      */
@@ -218,6 +234,30 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         // Only the end changes, so touch only the end and leave the other pages alone.
         if (fixed.size > poems.size) poems.add(fixed.last())
         while (poems.size > fixed.size) poems.removeAt(poems.lastIndex)
+    }
+
+    // --- Search ---
+
+    /** A poem a search result wants shown as soon as its book has opened, once. */
+    var poemToShow: String? by mutableStateOf(null)
+
+    /** Every poem on the shelf with its current title and text, as of the last saved edit. */
+    suspend fun searchablePoems(): List<SearchPoem> {
+        commitAll()
+        return locked { store.searchablePoems() }
+    }
+
+    /** Opens the book with the poem [poemId] and shows that poem. [onDone] says whether it worked. */
+    fun openPoem(bookId: String, poemId: String, onDone: (Boolean) -> Unit) {
+        val book = books.firstOrNull { it.id == bookId }
+        if (book == null) {
+            onDone(false)
+            return
+        }
+        openBook(book) { ok ->
+            if (ok) poemToShow = poemId
+            onDone(ok)
+        }
     }
 
     // --- Notepad and history ---

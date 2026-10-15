@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,15 +15,15 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,7 +42,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +63,7 @@ fun PoemPage(
     editing: Boolean,
     focusSignal: Int = 0,
     onDelete: (() -> Unit)? = null,
+    onMove: (() -> Unit)? = null,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -109,7 +111,11 @@ fun PoemPage(
                     BasicTextField(
                         state = titleState,
                         textStyle = titleStyle,
-                        lineLimits = TextFieldLineLimits.SingleLine,
+                        // Long titles wrap rather than scroll; the title is one paragraph, so no line breaks.
+                        inputTransformation = {
+                            val text = asCharSequence()
+                            if (text.contains('\n')) replace(0, length, text.toString().replace("\n", ""))
+                        },
                         cursorBrush = SolidColor(colors.accent),
                         decorator = { inner ->
                             Box(contentAlignment = Alignment.Center) {
@@ -141,8 +147,6 @@ fun PoemPage(
                                 it
                             }
                         },
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -194,18 +198,9 @@ fun PoemPage(
             }
 
             if (editing) {
-                // Deleting is part of editing, and sits here so the toolbar never changes.
-                if (onDelete != null) {
-                    TextButton(
-                        onClick = onDelete,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.delete_poem),
-                            style = MaterialTheme.typography.labelLarge.copy(fontFamily = PoemFont),
-                            color = colors.faintInk,
-                        )
-                    }
+                // Actions on the poem belong to editing, and sit here so the top toolbar never changes.
+                if (onDelete != null || onMove != null) {
+                    EditToolbar(onDelete = onDelete, onMove = onMove)
                 }
             } else {
                 Text(
@@ -216,6 +211,39 @@ fun PoemPage(
                         .align(Alignment.CenterHorizontally)
                         .padding(top = 12.dp, bottom = 20.dp),
                 )
+            }
+        }
+    }
+}
+
+/** The second toolbar, along the bottom while a poem is being edited: actions on the poem itself. */
+@Composable
+private fun EditToolbar(onDelete: (() -> Unit)?, onMove: (() -> Unit)?) {
+    val colors = paperColors()
+    Column(Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = colors.faintInk.copy(alpha = 0.25f))
+        Row(
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (onDelete != null) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_trash),
+                        contentDescription = stringResource(R.string.delete_poem),
+                        tint = colors.accent,
+                    )
+                }
+            }
+            if (onMove != null) {
+                IconButton(onClick = onMove) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_move),
+                        contentDescription = stringResource(R.string.move_poem),
+                        tint = colors.accent,
+                    )
+                }
             }
         }
     }

@@ -81,6 +81,26 @@ class PoemStore(
         books.touch(bookId, now())
     }
 
+    /**
+     * Moves the poem to the end of another book. The poems after it in its old book move up one.
+     * Does nothing if the poem isn't live or is already in [toBookId].
+     */
+    suspend fun movePoem(poemId: String, toBookId: String) = db.withTransaction {
+        val poem = poems.poem(poemId) ?: return@withTransaction
+        val position = poem.position ?: return@withTransaction // in the bin
+        if (poem.bookId == toBookId) return@withTransaction
+        poems.setBook(poemId, toBookId, poems.count(toBookId))
+        poems.parkAfter(poem.bookId, position)
+        poems.settleParkedDown(poem.bookId)
+        val at = now()
+        books.touch(poem.bookId, at)
+        books.touch(toBookId, at)
+    }
+
+    /** Every live poem on the shelf, for searching. */
+    suspend fun searchablePoems(): List<SearchPoem> =
+        poems.searchable().map { SearchPoem(it.id, it.bookId, it.bookName, it.title, it.body) }
+
     suspend fun notes(poemId: String): String = poems.notes(poemId).orEmpty()
 
     suspend fun setNotes(poemId: String, notes: String) = poems.setNotes(poemId, notes)

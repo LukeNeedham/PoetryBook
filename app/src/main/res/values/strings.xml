@@ -12,6 +12,12 @@
     <string name="delete_poem">Delete poem</string>
     <string name="delete_poem_title">Delete this poem?</string>
     <string name="delete_poem_message">Are you sure you want to delete it? Deleted poems go to the bin first, where you can restore them or delete them for good (Settings → Bin).</string>
+    <string name="move_poem">Move to another book</string>
+    <string name="move_poem_title">Move to which book?</string>
+    <string name="move_poem_no_books">There are no other books to move it to.</string>
+    <string name="search">Search</string>
+    <string name="search_hint">Search poems</string>
+    <string name="search_no_results">No poems match.</string>
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
 

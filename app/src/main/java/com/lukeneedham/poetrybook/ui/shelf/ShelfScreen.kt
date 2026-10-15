@@ -110,6 +110,7 @@ fun ShelfScreen(
     onEditBook: (book: Book, name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
     onDeleteBook: (book: Book, onDone: (Boolean) -> Unit) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = paperColors()
@@ -148,6 +149,13 @@ fun ShelfScreen(
                 color = colors.ink,
                 modifier = Modifier.weight(1f),
             )
+            IconButton(onClick = onOpenSearch) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_search),
+                    contentDescription = stringResource(R.string.search),
+                    tint = colors.accent,
+                )
+            }
             SortMenu(sort = sort, onSortChange = onSortChange)
             IconButton(onClick = onOpenSettings) {
                 Icon(
@@ -587,6 +595,7 @@ private fun ShelfPreview() {
             onCreateBook = { _, _, _ -> },
             onEditBook = { _, _, _, _ -> },
             onOpenSettings = {},
+            onOpenSearch = {},
         )
     }
 }

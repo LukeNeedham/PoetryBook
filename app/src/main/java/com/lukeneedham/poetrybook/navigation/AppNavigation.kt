@@ -19,6 +19,7 @@ import com.lukeneedham.poetrybook.ui.bin.BinScreen
 import com.lukeneedham.poetrybook.ui.book.BookScreen
 import com.lukeneedham.poetrybook.ui.history.HistoryScreen
 import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
+import com.lukeneedham.poetrybook.ui.search.SearchScreen
 import com.lukeneedham.poetrybook.ui.settings.SettingsScreen
 import com.lukeneedham.poetrybook.ui.shelf.ShelfScreen
 import com.lukeneedham.poetrybook.ui.theme.paperColors
@@ -66,6 +67,7 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                     onEditBook = { book, name, color, onDone -> viewModel.editBook(book, name, color, onDone) },
                     onDeleteBook = { book, onDone -> viewModel.deleteBook(book, onDone) },
                     onOpenSettings = { backStack.add(Settings) },
+                    onOpenSearch = { backStack.add(Search) },
                 )
             }
             entry<Book> {
@@ -80,7 +82,8 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                     viewModel = viewModel,
                     onOpenShelf = {
                         viewModel.closeBook()
-                        backStack.removeLastOrNull()
+                        // Back to the shelf, even if the book was opened from a search.
+                        while (backStack.size > 1 && backStack.lastOrNull() != Shelf) backStack.removeLastOrNull()
                     },
                     onOpenVersion = { poemId, createdAt -> backStack.add(History(poemId, createdAt)) },
                 )
@@ -91,6 +94,15 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                     poemId = key.poemId,
                     createdAt = key.createdAt,
                     onBack = { backStack.removeLastOrNull() },
+                )
+            }
+            entry<Search> {
+                SearchScreen(
+                    viewModel = viewModel,
+                    onBack = { backStack.removeLastOrNull() },
+                    onOpenPoem = { poem ->
+                        viewModel.openPoem(poem.bookId, poem.id) { ok -> if (ok) backStack.add(Book) }
+                    },
                 )
             }
             entry<Settings> {
