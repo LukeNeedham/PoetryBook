@@ -33,7 +33,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -62,7 +61,6 @@ fun ContentsSheet(
     poems: List<Poem>,
     currentIndex: Int,
     onSelect: (Int) -> Unit,
-    onOpenShelf: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -110,7 +108,6 @@ fun ContentsSheet(
                             style = MaterialTheme.typography.titleLarge.copy(fontFamily = PoemFont),
                             modifier = Modifier.weight(1f),
                         )
-                        TextButton(onClick = onOpenShelf) { Text(stringResource(R.string.bookshelf)) }
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp))
 

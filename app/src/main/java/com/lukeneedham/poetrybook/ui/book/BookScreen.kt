@@ -77,6 +77,10 @@ fun BookScreen(
                 // follows the current page, which only changes when a turn has settled, so the icon
                 // keeps its look while pages turn instead of flashing.
                 canDelete = currentPoem != null && !currentPoem.isBlank,
+                onOpenShelf = {
+                    stopEditing()
+                    onOpenShelf()
+                },
                 onOpenContents = {
                     stopEditing()
                     contentsOpen = true
@@ -113,11 +117,6 @@ fun BookScreen(
             onSelect = { index ->
                 contentsOpen = false
                 pageState.animateTo(index)
-            },
-            onOpenShelf = {
-                contentsOpen = false
-                stopEditing()
-                onOpenShelf()
             },
             onDismiss = { contentsOpen = false },
         )
