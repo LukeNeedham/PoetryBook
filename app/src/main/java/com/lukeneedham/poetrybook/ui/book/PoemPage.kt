@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -58,6 +60,8 @@ fun PoemPage(
     poem: Poem,
     pageNumber: Int,
     editing: Boolean,
+    focusSignal: Int = 0,
+    onDelete: (() -> Unit)? = null,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -151,9 +155,11 @@ fun PoemPage(
             ) {
                 if (editing) {
                     val focusRequester = remember { FocusRequester() }
-                    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+                    // Also when the signal changes, to take focus back after something else, like the notepad, had it.
+                    LaunchedEffect(focusSignal) { focusRequester.requestFocus() }
                     BasicTextField(
                         state = bodyState,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                         textStyle = bodyStyle,
                         cursorBrush = SolidColor(colors.accent),
                         decorator = { inner ->
@@ -187,7 +193,21 @@ fun PoemPage(
                 }
             }
 
-            if (!editing) {
+            if (editing) {
+                // Deleting is part of editing, and sits here so the toolbar never changes.
+                if (onDelete != null) {
+                    TextButton(
+                        onClick = onDelete,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.delete_poem),
+                            style = MaterialTheme.typography.labelLarge.copy(fontFamily = PoemFont),
+                            color = colors.faintInk,
+                        )
+                    }
+                }
+            } else {
                 Text(
                     text = pageNumber.toString(),
                     style = MaterialTheme.typography.labelLarge.copy(fontFamily = PoemFont),

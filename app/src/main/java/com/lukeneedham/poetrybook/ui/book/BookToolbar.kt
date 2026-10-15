@@ -21,11 +21,10 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
  * The buttons along the top of the book: the bookshelf and a ribbon for the contents on the left,
- * and on the right the poem's history, its notepad, a bin to delete it and a pencil to edit it.
+ * and on the right the poem's history, its notepad, and a pencil to edit it.
  * The history and notepad only work for a poem that has been saved, so they are greyed out for the
  * blank page at the end.
  *
- * @param historyMenu the drop-down of earlier versions, placed under the history button.
  *
  * It's a band of its own above the pages, with its own paper, so it never turns with them.
  * Whoever places it deals with the status bar inset.
@@ -33,14 +32,12 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 @Composable
 internal fun BookToolbar(
     editing: Boolean,
-    canDelete: Boolean,
+    canEdit: Boolean,
     hasPoem: Boolean,
     onOpenHistory: () -> Unit,
     onOpenNotepad: () -> Unit,
-    historyMenu: @Composable () -> Unit,
     onOpenShelf: () -> Unit,
     onOpenContents: () -> Unit,
-    onDelete: () -> Unit,
     onToggleEditing: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -68,15 +65,12 @@ internal fun BookToolbar(
                 )
             }
             Box(Modifier.weight(1f))
-            Box {
-                IconButton(onClick = onOpenHistory, enabled = hasPoem) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_history),
-                        contentDescription = stringResource(R.string.history),
-                        tint = colors.accent.copy(alpha = if (hasPoem) 1f else 0.35f),
-                    )
-                }
-                historyMenu()
+            IconButton(onClick = onOpenHistory, enabled = hasPoem) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_history),
+                    contentDescription = stringResource(R.string.history),
+                    tint = colors.accent.copy(alpha = if (hasPoem) 1f else 0.35f),
+                )
             }
             IconButton(onClick = onOpenNotepad, enabled = hasPoem) {
                 Icon(
@@ -85,19 +79,12 @@ internal fun BookToolbar(
                     tint = colors.accent.copy(alpha = if (hasPoem) 1f else 0.35f),
                 )
             }
-            // Greyed out while there is nothing written to delete.
-            IconButton(onClick = onDelete, enabled = canDelete) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_trash),
-                    contentDescription = stringResource(R.string.delete_poem),
-                    tint = colors.accent.copy(alpha = if (canDelete) 1f else 0.35f),
-                )
-            }
-            IconButton(onClick = onToggleEditing) {
+            // The contents page has no poem to edit.
+            IconButton(onClick = onToggleEditing, enabled = editing || canEdit) {
                 Icon(
                     painter = painterResource(if (editing) R.drawable.ic_check else R.drawable.ic_pencil),
                     contentDescription = stringResource(if (editing) R.string.done else R.string.edit),
-                    tint = colors.accent,
+                    tint = colors.accent.copy(alpha = if (editing || canEdit) 1f else 0.35f),
                 )
             }
         }

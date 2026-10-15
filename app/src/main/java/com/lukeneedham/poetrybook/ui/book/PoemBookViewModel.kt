@@ -222,10 +222,23 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
 
     // --- Notepad and history ---
 
-    suspend fun notes(poemId: String): String = locked { store.notes(poemId) }
+    /** Notes already read from the store, so the notepad can open without waiting for them. */
+    private val notesCache = mutableStateMapOf<String, String>()
+
+    /** The poem's notes if [loadNotes] has read them, else null. */
+    fun loadedNotes(poemId: String): String? = notesCache[poemId]
+
+    /** Reads the poem's notes into memory, unless that has been done already. */
+    suspend fun loadNotes(poemId: String) {
+        if (poemId in notesCache) return
+        val notes = locked { store.notes(poemId) }
+        // A save while we were reading is newer than what was read.
+        notesCache.putIfAbsent(poemId, notes)
+    }
 
     /** Saves the poem's notepad. This is not an edit of the poem, so it makes no new version. */
     fun saveNotes(poemId: String, notes: String) {
+        notesCache[poemId] = notes
         scope.launch { runCatching { locked { store.setNotes(poemId, notes) } } }
     }
 
