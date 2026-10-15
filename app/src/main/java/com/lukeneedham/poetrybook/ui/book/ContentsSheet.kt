@@ -150,12 +150,15 @@ fun ContentsSheet(
 }
 
 @Composable
-private fun ContentsRow(
+internal fun ContentsRow(
     number: Int,
     poem: Poem,
     current: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    currentColor: Color = MaterialTheme.colorScheme.primary,
+    numberColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     Row(
         modifier = modifier
@@ -171,11 +174,7 @@ private fun ContentsRow(
                 fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
                 fontStyle = if (poem.title.isBlank()) FontStyle.Italic else FontStyle.Normal,
             ),
-            color = if (current) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
+            color = if (current) currentColor else textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -183,7 +182,7 @@ private fun ContentsRow(
         Text(
             text = number.toString(),
             style = MaterialTheme.typography.bodyMedium.copy(fontFamily = PoemFont),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = numberColor,
             modifier = Modifier.padding(start = 16.dp),
         )
     }

@@ -16,6 +16,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,7 +31,7 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
  * One book of poems, which you swipe or tap through, with a contents sheet dropping from the top.
- * The book always ends with a blank poem, ready to be written.
+ * Its first page is a generated contents page. The book always ends with a blank poem, ready to be written.
  */
 @Composable
 fun BookScreen(
@@ -46,12 +47,16 @@ fun BookScreen(
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     var notepadOpen by rememberSaveable { mutableStateOf(false) }
+    var bodyFocusSignal by rememberSaveable { mutableIntStateOf(0) }
     var shownBook by rememberSaveable { mutableStateOf(viewModel.currentBook?.id) }
     val focusManager = LocalFocusManager.current
 
+    // Page 0 is the generated contents page; the poems follow it.
+    fun poemAt(page: Int) = poems.getOrNull(page - 1)
+
     // Finishing an edit saves the poem as a new version, if anything changed.
     fun stopEditing() {
-        if (editing) poems.getOrNull(pageState.currentPage)?.let { viewModel.commit(it.id) }
+        if (editing) poemAt(pageState.currentPage)?.let { viewModel.commit(it.id) }
         focusManager.clearFocus()
         editing = false
     }
@@ -78,13 +83,14 @@ fun BookScreen(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
         ) {
-            val currentPoem = poems.getOrNull(pageState.currentPage)
+            val currentPoem = poemAt(pageState.currentPage)
             BookToolbar(
                 editing = editing,
                 // Nothing to delete from a blank poem, such as the one at the end of the book. This
                 // follows the current page, which only changes when a turn has settled, so the icon
                 // keeps its look while pages turn instead of flashing.
                 canDelete = currentPoem != null && !currentPoem.isBlank,
+                canEdit = currentPoem != null,
                 // Only a poem that has been saved has a history and a notepad.
                 hasPoem = currentPoem != null && viewModel.isStored(currentPoem.id),
                 onOpenHistory = {
@@ -94,8 +100,8 @@ fun BookScreen(
                     }
                 },
                 onOpenNotepad = {
+                    // Editing carries on underneath the notepad.
                     if (!pageState.isTurning) {
-                        stopEditing()
                         notepadOpen = true
                     }
                 },
@@ -110,27 +116,37 @@ fun BookScreen(
                 // Mid-turn the poem on show is about to change, so wait for the page to settle.
                 onDelete = { if (!pageState.isTurning) confirmingDelete = true },
                 onToggleEditing = {
-                    if (editing) stopEditing() else if (!pageState.isTurning) editing = true
+                    if (editing) stopEditing() else if (!pageState.isTurning && currentPoem != null) editing = true
                 },
             )
 
             // The pages turn only in the space below the toolbar.
             PageTurnBook(
                 state = pageState,
-                pageCount = poems.size,
+                pageCount = poems.size + 1,
                 gesturesEnabled = !editing && !contentsOpen,
                 // Tapping the middle of the unstarted poem at the end starts writing in it.
                 onCenterTap = {
-                    val page = poems.getOrNull(pageState.currentPage)
+                    val page = poemAt(pageState.currentPage)
                     if (page != null && page.isBlank && !pageState.isTurning) editing = true
                 },
                 modifier = Modifier.weight(1f),
             ) { index ->
-                val poem = poems.getOrNull(index) ?: return@PageTurnBook
+                if (index == 0) {
+                    ContentsPage(
+                        poems = poems,
+                        onSelect = { poemIndex ->
+                            if (!pageState.isTurning) pageState.animateTo(poemIndex + 1)
+                        },
+                    )
+                    return@PageTurnBook
+                }
+                val poem = poems.getOrNull(index - 1) ?: return@PageTurnBook
                 PoemPage(
                     poem = poem,
-                    pageNumber = index + 1,
+                    pageNumber = index,
                     editing = editing && index == pageState.currentPage,
+                    focusSignal = bodyFocusSignal,
                     onTitleChange = { viewModel.updateTitle(poem.id, it) },
                     onBodyChange = { viewModel.updateBody(poem.id, it) },
                 )
@@ -140,23 +156,23 @@ fun BookScreen(
         ContentsSheet(
             visible = contentsOpen,
             poems = poems,
-            currentIndex = pageState.currentPage,
+            currentIndex = pageState.currentPage - 1,
             onSelect = { index ->
                 contentsOpen = false
-                pageState.animateTo(index)
+                pageState.animateTo(index + 1)
             },
             onMove = { from, to ->
                 // The page on show follows its poem to wherever that goes.
-                val shownId = poems.getOrNull(pageState.currentPage)?.id
+                val shownId = poemAt(pageState.currentPage)?.id
                 viewModel.movePoem(from, to)
-                val shownIndex = poems.indexOfFirst { it.id == shownId }
-                if (shownIndex >= 0 && shownIndex != pageState.currentPage) pageState.snapTo(shownIndex)
+                val shownIndex = poems.indexOfFirst { it.id == shownId } + 1
+                if (shownIndex > 0 && shownIndex != pageState.currentPage) pageState.snapTo(shownIndex)
             },
             onDismiss = { contentsOpen = false },
         )
     }
 
-    val historyPoem = poems.getOrNull(pageState.currentPage)
+    val historyPoem = poemAt(pageState.currentPage)
     if (historyOpen && historyPoem != null) {
         HistorySheet(
             versions = remember(historyPoem.id) { viewModel.history(historyPoem.id) },
@@ -169,7 +185,7 @@ fun BookScreen(
     }
 
     // Read the notes of the poem on show as soon as it is stored, so the notepad opens ready.
-    val notepadPoem = poems.getOrNull(pageState.currentPage)
+    val notepadPoem = poemAt(pageState.currentPage)
     val notepadPoemId = notepadPoem?.id?.takeIf { viewModel.isStored(it) }
     LaunchedEffect(notepadPoemId) { notepadPoemId?.let { viewModel.loadNotes(it) } }
     val notepadNotes = notepadPoemId?.let { viewModel.loadedNotes(it) }
@@ -178,11 +194,15 @@ fun BookScreen(
             viewModel = viewModel,
             poemId = notepadPoemId,
             notes = notepadNotes,
-            onDismiss = { notepadOpen = false },
+            onDismiss = {
+                notepadOpen = false
+                // Back to typing in the poem, if that's what was going on.
+                if (editing) bodyFocusSignal++
+            },
         )
     }
 
-    val poemToDelete = poems.getOrNull(pageState.currentPage)
+    val poemToDelete = poemAt(pageState.currentPage)
     if (confirmingDelete && poemToDelete != null) {
         AlertDialog(
             onDismissRequest = { confirmingDelete = false },
@@ -193,7 +213,7 @@ fun BookScreen(
                     onClick = {
                         confirmingDelete = false
                         stopEditing()
-                        pageState.snapTo(viewModel.deletePoem(poemToDelete.id))
+                        pageState.snapTo(viewModel.deletePoem(poemToDelete.id) + 1)
                     },
                 ) { Text(stringResource(R.string.delete)) }
             },

@@ -60,6 +60,7 @@ fun PoemPage(
     poem: Poem,
     pageNumber: Int,
     editing: Boolean,
+    focusSignal: Int = 0,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -153,7 +154,8 @@ fun PoemPage(
             ) {
                 if (editing) {
                     val focusRequester = remember { FocusRequester() }
-                    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+                    // Also when the signal changes, to take focus back after something else, like the notepad, had it.
+                    LaunchedEffect(focusSignal) { focusRequester.requestFocus() }
                     BasicTextField(
                         state = bodyState,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
