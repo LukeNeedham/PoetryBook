@@ -1,5 +1,6 @@
 package com.lukeneedham.poetrybook.ui.book
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -221,6 +222,7 @@ private fun PoemPagePreview() {
  * Capitalizes the first letter typed at the start of a line (or of the poem). Only what is typed
  * is changed, so the rest of the line, and lines that already exist, are left as they are.
  */
+@OptIn(ExperimentalFoundationApi::class) // TextFieldBuffer.changes
 private val CapitalizeLineStart = InputTransformation {
     for (i in 0 until changes.changeCount) {
         val start = changes.getRange(i).min
