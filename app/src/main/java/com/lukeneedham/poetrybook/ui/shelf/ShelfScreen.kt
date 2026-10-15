@@ -170,6 +170,7 @@ fun ShelfScreen(
                 if (editing == book.documentId) {
                     BookEditor(
                         initialName = book.name,
+                        placeholder = stringResource(R.string.book_name),
                         viewportHeight = { gridState.layoutInfo.viewportSize.height },
                         initialColor = coverColor(book),
                         nameEditable = !book.isLooseFiles,
@@ -202,6 +203,7 @@ fun ShelfScreen(
                 if (editing == NewBook) {
                     BookEditor(
                         initialName = "",
+                        placeholder = stringResource(R.string.new_book),
                         viewportHeight = { gridState.layoutInfo.viewportSize.height },
                         initialColor = suggestedColor(books),
                         failed = failed,
@@ -306,6 +308,9 @@ private fun coverTitleStyle(): TextStyle =
         textAlign = TextAlign.Center,
     )
 
+/** Where the label sits in the outlined book. */
+private val NewBookLabelPadding = 16.dp
+
 private val CoverTitlePadding = Modifier.padding(start = 26.dp, end = 14.dp)
 
 /** A book's cover in [color], with its spine; [content] goes on top. */
@@ -362,6 +367,15 @@ private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
     }
 }
 
+/** The "New book" label on the empty outlined book. The editor keeps showing it, in this style, until a name is typed. */
+@Composable
+private fun newBookLabelStyle(): TextStyle =
+    MaterialTheme.typography.titleMedium.copy(
+        fontFamily = PoemFont,
+        color = paperColors().faintInk,
+        textAlign = TextAlign.Center,
+    )
+
 @Composable
 private fun NewBookTile(onClick: () -> Unit) {
     val colors = paperColors()
@@ -376,10 +390,8 @@ private fun NewBookTile(onClick: () -> Unit) {
         ) {
             Text(
                 text = stringResource(R.string.new_book),
-                style = MaterialTheme.typography.titleMedium.copy(fontFamily = PoemFont),
-                color = colors.faintInk,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(16.dp),
+                style = newBookLabelStyle(),
+                modifier = Modifier.padding(NewBookLabelPadding),
             )
         }
     }
@@ -393,6 +405,7 @@ private fun NewBookTile(onClick: () -> Unit) {
  * Takes focus and the keyboard as soon as it appears, and keeps the whole book in view above the
  * keyboard as the shelf resizes around it.
  *
+ * @param placeholder shown, exactly as the new book tile shows its label, while no name is typed.
  * @param viewportHeight the height of the area the book scrolls in, which changes as the keyboard
  * opens.
  * @param nameEditable false for a book whose name can't change (Misc), which then only gets a colour.
@@ -405,6 +418,7 @@ private fun NewBookTile(onClick: () -> Unit) {
 private fun BookEditor(
     initialName: String,
     initialColor: Color,
+    placeholder: String,
     viewportHeight: () -> Int,
     nameEditable: Boolean = true,
     onDelete: (() -> Unit)? = null,
@@ -464,6 +478,16 @@ private fun BookEditor(
                     .then(CoverTitlePadding),
             )
         } else {
+            if (nameState.text.isEmpty()) {
+                // Not part of the field, so it sits exactly where the tile's label does.
+                Text(
+                    text = placeholder,
+                    style = newBookLabelStyle(),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(NewBookLabelPadding),
+                )
+            }
             BasicTextField(
                 state = nameState,
                 textStyle = titleStyle,
@@ -475,15 +499,7 @@ private fun BookEditor(
                 ),
                 onKeyboardAction = KeyboardActionHandler { confirm() },
                 decorator = { inner ->
-                    Box(contentAlignment = Alignment.Center) {
-                        if (nameState.text.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.book_name),
-                                style = titleStyle.copy(color = colors.faintInk),
-                            )
-                        }
-                        inner()
-                    }
+                    Box(contentAlignment = Alignment.Center) { inner() }
                 },
                 modifier = Modifier
                     .align(Alignment.Center)
