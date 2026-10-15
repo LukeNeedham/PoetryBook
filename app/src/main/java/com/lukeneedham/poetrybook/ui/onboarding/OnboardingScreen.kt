@@ -31,6 +31,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
+import com.lukeneedham.poetrybook.ui.theme.TitleFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
@@ -131,7 +132,7 @@ private fun StepContent(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineMedium.copy(fontFamily = PoemFont),
+            style = MaterialTheme.typography.headlineMedium.copy(fontFamily = TitleFont),
             color = colors.ink,
             textAlign = TextAlign.Center,
         )

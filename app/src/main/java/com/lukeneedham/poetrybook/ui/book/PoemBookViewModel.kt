@@ -213,8 +213,9 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         val lib = library ?: return onDone(null)
         scope.launch {
             val created = withContext(Dispatchers.IO) { runCatching { lib.createBook(name, color) }.getOrNull() }
-            if (created != null) refreshBooks()
+            if (created != null) books = books + created
             onDone(created)
+            if (created != null) refreshBooks()
         }
     }
 
@@ -223,9 +224,12 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         val lib = library ?: return onDone(false)
         scope.launch {
             val edited = withContext(Dispatchers.IO) { runCatching { lib.editBook(book, name, color) }.getOrNull() }
+            // Show the change straight away; the editor closes on onDone, and the shelf must not
+            // flash the old cover before the folder has been listed again.
+            if (edited != null) books = books.map { if (it.documentId == book.documentId) edited else it }
+            onDone(edited != null)
             // Even a failed rename may have changed what the folder is called; look again.
             refreshBooks()
-            onDone(edited != null)
         }
     }
 

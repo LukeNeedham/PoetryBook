@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
+import com.lukeneedham.poetrybook.ui.theme.TitleFont
 
 /**
  * The contents page: a sheet that drops down from the top of the screen and lists every poem.
@@ -109,7 +110,7 @@ fun ContentsSheet(
                     ) {
                         Text(
                             text = stringResource(R.string.contents),
-                            style = MaterialTheme.typography.titleLarge.copy(fontFamily = PoemFont),
+                            style = MaterialTheme.typography.titleLarge.copy(fontFamily = TitleFont),
                             modifier = Modifier.weight(1f),
                         )
                     }

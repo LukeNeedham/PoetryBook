@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
-import com.lukeneedham.poetrybook.ui.theme.PoemFont
+import com.lukeneedham.poetrybook.ui.theme.TitleFont
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 import kotlinx.coroutines.launch
 
@@ -60,8 +60,18 @@ internal val BookPalette = listOf(
     Color(0xFF4B4B4B), // graphite
 )
 
+/** The colours books had before they could choose: one came from the name. All are in [BookPalette]. */
+private val NameColors = listOf(
+    Color(0xFF6B3F36),
+    Color(0xFF3F5B52),
+    Color(0xFF35506E),
+    Color(0xFF6E5A35),
+    Color(0xFF5B3F6B),
+    Color(0xFF4B4B4B),
+)
+
 /** A book that was never given a colour keeps the one its name has always given it. */
-private fun defaultColor(name: String): Color = BookPalette[Math.floorMod(name.lowercase().hashCode(), BookPalette.size)]
+private fun defaultColor(name: String): Color = NameColors[Math.floorMod(name.lowercase().hashCode(), NameColors.size)]
 
 /** The cover colour of [book]. */
 internal fun coverColor(book: Book): Color = book.color?.let(::Color) ?: defaultColor(book.name)
@@ -92,7 +102,7 @@ internal fun ColorPickerSheet(
         Column(Modifier.navigationBarsPadding()) {
             Text(
                 text = stringResource(R.string.book_colour),
-                style = MaterialTheme.typography.titleMedium.copy(fontFamily = PoemFont, fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.titleMedium.copy(fontFamily = TitleFont, fontWeight = FontWeight.SemiBold),
                 color = colors.ink,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )

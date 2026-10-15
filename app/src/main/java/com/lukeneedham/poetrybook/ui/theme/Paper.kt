@@ -3,7 +3,6 @@ package com.lukeneedham.poetrybook.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 
 /** Colours and type for the pages of the book; deliberately independent of the app's dynamic colour. */
 data class PaperColors(
@@ -30,5 +29,3 @@ private val DarkPaper = PaperColors(
 @Composable
 fun paperColors(darkTheme: Boolean = isSystemInDarkTheme()): PaperColors =
     if (darkTheme) DarkPaper else LightPaper
-
-val PoemFont: FontFamily = FontFamily.Serif

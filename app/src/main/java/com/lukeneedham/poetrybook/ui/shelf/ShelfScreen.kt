@@ -1,6 +1,16 @@
 package com.lukeneedham.poetrybook.ui.shelf
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +76,7 @@ import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
+import com.lukeneedham.poetrybook.ui.theme.TitleFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
@@ -76,7 +87,7 @@ private const val NewBook = ""
  * The bookshelf: every book in the chosen folder as a cover. Tap one to read it.
  *
  * The last tile starts a new book: its cover becomes editable right there, name and colour. The
- * pencil on a cover does the same for an existing book, which stays where it is.
+ * long press on a cover does the same for an existing book, which stays where it is.
  *
  * @param sort how [books] are ordered, which the caller does; [onSortChange] is called when the user picks another.
  * @param onCreateBook creates a book with the given name and cover colour (ARGB); reports whether that worked.
@@ -118,13 +129,17 @@ fun ShelfScreen(
         ) {
             Text(
                 text = stringResource(R.string.bookshelf),
-                style = MaterialTheme.typography.headlineMedium.copy(fontFamily = PoemFont),
+                style = MaterialTheme.typography.headlineMedium.copy(fontFamily = TitleFont),
                 color = colors.ink,
                 modifier = Modifier.weight(1f),
             )
             SortMenu(sort = sort, onSortChange = onSortChange)
-            TextButton(onClick = onOpenSettings) {
-                Text(stringResource(R.string.settings), color = colors.accent)
+            IconButton(onClick = onOpenSettings) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_settings),
+                    contentDescription = stringResource(R.string.settings),
+                    tint = colors.accent,
+                )
             }
         }
 
@@ -140,6 +155,7 @@ fun ShelfScreen(
                 if (editing == book.documentId) {
                     BookEditor(
                         initialName = book.name,
+                        viewportHeight = { gridState.layoutInfo.viewportSize.height },
                         initialColor = coverColor(book),
                         nameEditable = !book.isLooseFiles,
                         failed = failed,
@@ -170,6 +186,7 @@ fun ShelfScreen(
                 if (editing == NewBook) {
                     BookEditor(
                         initialName = "",
+                        viewportHeight = { gridState.layoutInfo.viewportSize.height },
                         initialColor = suggestedColor(books),
                         failed = failed,
                         onConfirm = { name, color, onDone ->
@@ -275,8 +292,18 @@ private fun CoverBox(color: Color, modifier: Modifier = Modifier, content: @Comp
 @Composable
 private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
     val colors = paperColors()
+    val haptics = LocalHapticFeedback.current
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        CoverBox(color = coverColor(book), modifier = Modifier.clickable(onClick = onClick)) {
+        CoverBox(
+            color = coverColor(book),
+            modifier = Modifier.combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onEdit()
+                },
+            ),
+        ) {
             Text(
                 text = book.name,
                 style = coverTitleStyle(),
@@ -286,14 +313,6 @@ private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
                     .align(Alignment.Center)
                     .then(CoverTitlePadding),
             )
-            IconButton(onClick = onEdit, modifier = Modifier.align(Alignment.TopEnd)) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_pencil),
-                    contentDescription = stringResource(R.string.edit_book),
-                    tint = CoverTextColor.copy(alpha = 0.75f),
-                    modifier = Modifier.size(18.dp),
-                )
-            }
         }
         Text(
             text = pluralStringResource(R.plurals.poem_count, book.poemCount, book.poemCount),
@@ -328,17 +347,25 @@ private fun NewBookTile(onClick: () -> Unit) {
 }
 
 /**
- * A cover whose name is typed straight onto it, where it will be shown, with the cover colour as a
- * circle underneath (tap it to pick another) between a cancel and a confirm button.
+ * A book drawn as an outline, like the new book tile, whose name is typed straight into it where
+ * it will be shown. Along the bottom, inside the outline, are a cancel button, a circle in the
+ * cover colour (tap it to pick another) and a confirm button.
  *
+ * Takes focus and the keyboard as soon as it appears, and keeps the whole book in view above the
+ * keyboard as the shelf resizes around it.
+ *
+ * @param viewportHeight the height of the area the book scrolls in, which changes as the keyboard
+ * opens.
  * @param nameEditable false for a book whose name can't change (Misc), which then only gets a colour.
  * @param onConfirm called with the name and colour; call its `onDone` argument when finished so
  * the buttons can be used again.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BookEditor(
     initialName: String,
     initialColor: Color,
+    viewportHeight: () -> Int,
     nameEditable: Boolean = true,
     failed: Boolean,
     onConfirm: (name: String, color: Color, onDone: () -> Unit) -> Unit,
@@ -350,9 +377,20 @@ private fun BookEditor(
     var pickingColor by rememberSaveable { mutableStateOf(false) }
     var busy by rememberSaveable { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { if (nameEditable) focusRequester.requestFocus() }
+    val bringIntoView = remember { BringIntoViewRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val currentViewportHeight by rememberUpdatedState(viewportHeight)
 
-    val titleStyle = coverTitleStyle()
+    LaunchedEffect(Unit) {
+        if (nameEditable) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
+        // The shelf shrinks as the keyboard slides up; follow it so the whole book stays visible.
+        snapshotFlow { currentViewportHeight() }.collectLatest { bringIntoView.bringIntoView() }
+    }
+
+    val titleStyle = coverTitleStyle().copy(color = colors.ink)
     val canConfirm = (nameState.text.isNotBlank() || !nameEditable) && !busy
     fun confirm() {
         if (!canConfirm) return
@@ -361,22 +399,28 @@ private fun BookEditor(
         onConfirm(nameState.text.toString().replace('\n', ' '), Color(colorArgb)) { busy = false }
     }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        CoverBox(color = Color(colorArgb)) {
-            if (!nameEditable) {
-                Text(
-                    text = initialName,
-                    style = titleStyle,
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .then(CoverTitlePadding),
-                )
-            } else BasicTextField(
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(0.72f)
+            .bringIntoViewRequester(bringIntoView)
+            .border(2.dp, colors.faintInk.copy(alpha = 0.5f), RoundedCornerShape(10.dp)),
+    ) {
+        if (!nameEditable) {
+            Text(
+                text = initialName,
+                style = titleStyle,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .then(CoverTitlePadding),
+            )
+        } else {
+            BasicTextField(
                 state = nameState,
                 textStyle = titleStyle,
-                cursorBrush = SolidColor(CoverTextColor),
+                cursorBrush = SolidColor(colors.ink),
                 lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 4),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
@@ -388,7 +432,7 @@ private fun BookEditor(
                         if (nameState.text.isEmpty()) {
                             Text(
                                 text = stringResource(R.string.book_name),
-                                style = titleStyle.copy(color = CoverTextColor.copy(alpha = 0.5f)),
+                                style = titleStyle.copy(color = colors.faintInk),
                             )
                         }
                         inner()
@@ -401,39 +445,42 @@ private fun BookEditor(
             )
         }
 
-        Row(
-            modifier = Modifier.padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            IconButton(onClick = onCancel) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_close),
-                    contentDescription = stringResource(R.string.cancel),
-                    tint = colors.faintInk,
+            if (failed) {
+                Text(
+                    text = stringResource(R.string.new_book_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color(colorArgb))
-                    .border(2.dp, colors.faintInk.copy(alpha = 0.6f), CircleShape)
-                    .clickable(onClickLabel = stringResource(R.string.choose_colour)) { pickingColor = true },
-            )
-            IconButton(onClick = ::confirm, enabled = canConfirm) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_check),
-                    contentDescription = stringResource(R.string.done),
-                    tint = colors.accent.copy(alpha = if (canConfirm) 1f else 0.35f),
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onCancel) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_close),
+                        contentDescription = stringResource(R.string.cancel),
+                        tint = colors.ink,
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color(colorArgb))
+                        .clickable(onClickLabel = stringResource(R.string.choose_colour)) { pickingColor = true },
                 )
+                IconButton(onClick = ::confirm, enabled = canConfirm) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_check),
+                        contentDescription = stringResource(R.string.done),
+                        tint = colors.ink.copy(alpha = if (canConfirm) 1f else 0.35f),
+                    )
+                }
             }
-        }
-        if (failed) {
-            Text(
-                text = stringResource(R.string.new_book_failed),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
         }
     }
 

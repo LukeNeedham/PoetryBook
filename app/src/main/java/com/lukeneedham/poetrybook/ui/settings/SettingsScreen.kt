@@ -105,7 +105,7 @@ fun SettingsScreen(
                 }
                 Text(
                     text = stringResource(R.string.settings),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.headlineMedium,
                 )
             }
 
