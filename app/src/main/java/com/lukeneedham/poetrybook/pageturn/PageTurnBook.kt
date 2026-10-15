@@ -40,7 +40,7 @@ import kotlin.math.abs
 import com.lukeneedham.poetrybook.pageturn.geometry.Rect as CurlRect
 
 /** Taps within this fraction of the page width from the left or right side turn the page. */
-private const val TAP_EDGE_FRACTION = 0.33f
+private const val TAP_EDGE_FRACTION = 0.25f
 
 /**
  * A book that shows [pageCount] full-size pages, one at a time. Swiping across the page peels it
