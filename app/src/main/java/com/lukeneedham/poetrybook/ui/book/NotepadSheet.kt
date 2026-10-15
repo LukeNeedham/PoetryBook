@@ -21,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -50,12 +49,9 @@ private const val SaveDebounceMillis = 400L
 fun NotepadSheet(
     viewModel: PoemBookViewModel,
     poemId: String,
+    notes: String,
     onDismiss: () -> Unit,
 ) {
-    // Wait for the notes before showing the sheet, so it opens at its final size, once.
-    val initial by produceState<String?>(null, poemId) { value = viewModel.notes(poemId) }
-    val notes = initial ?: return
-
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(

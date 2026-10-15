@@ -168,11 +168,16 @@ fun BookScreen(
         )
     }
 
+    // Read the notes of the poem on show as soon as it is stored, so the notepad opens ready.
     val notepadPoem = poems.getOrNull(pageState.currentPage)
-    if (notepadOpen && notepadPoem != null && viewModel.isStored(notepadPoem.id)) {
+    val notepadPoemId = notepadPoem?.id?.takeIf { viewModel.isStored(it) }
+    LaunchedEffect(notepadPoemId) { notepadPoemId?.let { viewModel.loadNotes(it) } }
+    val notepadNotes = notepadPoemId?.let { viewModel.loadedNotes(it) }
+    if (notepadOpen && notepadPoemId != null && notepadNotes != null) {
         NotepadSheet(
             viewModel = viewModel,
-            poemId = notepadPoem.id,
+            poemId = notepadPoemId,
+            notes = notepadNotes,
             onDismiss = { notepadOpen = false },
         )
     }

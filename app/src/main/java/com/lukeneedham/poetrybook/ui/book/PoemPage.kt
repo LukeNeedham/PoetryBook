@@ -1,6 +1,5 @@
 package com.lukeneedham.poetrybook.ui.book
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +14,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -156,7 +156,7 @@ fun PoemPage(
                     LaunchedEffect(Unit) { focusRequester.requestFocus() }
                     BasicTextField(
                         state = bodyState,
-                        inputTransformation = CapitalizeLineStart,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                         textStyle = bodyStyle,
                         cursorBrush = SolidColor(colors.accent),
                         decorator = { inner ->
@@ -215,21 +215,5 @@ private fun PoemPagePreview() {
             onTitleChange = {},
             onBodyChange = {},
         )
-    }
-}
-
-/**
- * Capitalizes the first letter typed at the start of a line (or of the poem). Only what is typed
- * is changed, so the rest of the line, and lines that already exist, are left as they are.
- */
-@OptIn(ExperimentalFoundationApi::class) // TextFieldBuffer.changes
-private val CapitalizeLineStart = InputTransformation {
-    for (i in 0 until changes.changeCount) {
-        val start = changes.getRange(i).min
-        val end = changes.getRange(i).max
-        if (start >= end) continue // a deletion
-        if (start > 0 && asCharSequence()[start - 1] != '\n') continue
-        val first = asCharSequence()[start]
-        if (first.isLowerCase()) replace(start, start + 1, first.titlecase())
     }
 }
