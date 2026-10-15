@@ -53,7 +53,10 @@ import com.lukeneedham.poetrybook.ui.theme.PoemFont
 
 /**
  * The contents page: a sheet that drops down from the top of the screen and lists every poem.
- * Tapping a poem calls [onSelect]; new poems are started on the book's last page, not here. The handle at the bottom can be dragged up to close it.
+ * Tapping a poem calls [onSelect]; new poems are started on the book's last page, not here.
+ * Pressing and holding a poem lets you drag it to another place in the list, which calls
+ * [onMove]; the blank poem at the end can't be moved and nothing can be dragged below it.
+ * The handle at the bottom can be dragged up to close the sheet.
  */
 @Composable
 fun ContentsSheet(
@@ -61,6 +64,7 @@ fun ContentsSheet(
     poems: List<Poem>,
     currentIndex: Int,
     onSelect: (Int) -> Unit,
+    onMove: (from: Int, to: Int) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -114,13 +118,25 @@ fun ContentsSheet(
                     val listState = rememberLazyListState(
                         initialFirstVisibleItemIndex = currentIndex.coerceAtLeast(0),
                     )
+                    val reorder = rememberReorderState(listState, movableCount = (poems.size - 1).coerceAtLeast(0), onMove = onMove)
                     LazyColumn(state = listState, modifier = Modifier.weight(1f, fill = false)) {
                         itemsIndexed(poems, key = { _, poem -> poem.id }) { index, poem ->
+                            val dragged = reorder.draggedKey == poem.id
                             ContentsRow(
                                 number = index + 1,
                                 poem = poem,
                                 current = index == currentIndex,
                                 onClick = { onSelect(index) },
+                                modifier = Modifier
+                                    .then(if (dragged) Modifier else Modifier.animateItem())
+                                    .reorderable(reorder, key = poem.id, enabled = index < poems.size - 1)
+                                    .then(
+                                        if (dragged) {
+                                            Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
                             )
                         }
                     }
@@ -138,9 +154,10 @@ private fun ContentsRow(
     poem: Poem,
     current: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),

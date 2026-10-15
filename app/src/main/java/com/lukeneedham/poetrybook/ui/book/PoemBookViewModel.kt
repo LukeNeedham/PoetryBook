@@ -258,6 +258,18 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         return index.coerceAtMost(poems.lastIndex)
     }
 
+    /**
+     * Moves the poem at page [from] to page [to]. The blank poem always stays last, so neither
+     * index may be that page.
+     */
+    fun movePoem(from: Int, to: Int) {
+        val movable = 0 until poems.lastIndex
+        if (from == to || from !in movable || to !in movable) return
+        poems.add(to, poems.removeAt(from))
+        markUpdated()
+        scheduleSave()
+    }
+
     /** Writes any pending changes now, e.g. when the app goes to the background. */
     fun flush() {
         if (repository == null) return
