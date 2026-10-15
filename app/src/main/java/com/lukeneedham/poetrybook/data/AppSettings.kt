@@ -26,6 +26,13 @@ class AppSettings(context: Context) {
             prefs.edit().putInt(KEY_COLUMNS, value.coerceIn(MIN_SHELF_COLUMNS, MAX_SHELF_COLUMNS)).apply()
         }
 
+    /** Whether an older version of a poem is shown with its differences from the current poem marked. */
+    var showHistoryChanges: Boolean
+        get() = prefs.getBoolean(KEY_HISTORY_CHANGES, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_HISTORY_CHANGES, value).apply()
+        }
+
     /**
      * The file names (without extension) in page order, as the old folder-based app last saved them
      * for the book folder with [folderKey] (see [PoemFolder.key]).
@@ -53,5 +60,6 @@ class AppSettings(context: Context) {
         const val MAX_SHELF_COLUMNS = 5
         private const val KEY_SORT = "bookSort"
         private const val KEY_COLUMNS = "shelfColumns"
+        private const val KEY_HISTORY_CHANGES = "showHistoryChanges"
     }
 }

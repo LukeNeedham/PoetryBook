@@ -30,7 +30,17 @@
     <string name="history_read_only">This is an earlier version of the poem. It can\'t be edited here, but you can select and copy its text.</string>
     <string name="version_not_found">That version no longer exists.</string>
     <string name="history_same_as_current">This is the same as the current version.</string>
-    <string name="history_differences">Highlighted text is not in the current version.</string>
+    <string name="history_differences">Marks show how this version differs from the current one.</string>
+    <string name="history_show_changes">Show changes</string>
+    <string name="history_hide_changes">Hide changes</string>
+    <string name="diff_moved_stanza">Stanza moved: now stanza %1$d</string>
+    <string name="diff_moved_line">Moved: now line %1$d</string>
+    <string name="diff_moved_line_in_stanza">Moved: now stanza %1$d, line %2$d</string>
+    <string name="diff_removed">Not in the current version</string>
+    <plurals name="diff_added">
+        <item quantity="one">+%d line added since</item>
+        <item quantity="other">+%d lines added since</item>
+    </plurals>
     <string name="notepad">Notepad</string>
     <string name="notepad_hint">Ideas, rhymes, metaphors…</string>
 

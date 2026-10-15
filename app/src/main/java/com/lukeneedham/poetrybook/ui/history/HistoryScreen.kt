@@ -2,6 +2,17 @@ package com.lukeneedham.poetrybook.ui.history
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import com.lukeneedham.poetrybook.data.DiffLine
+import com.lukeneedham.poetrybook.data.LineChange
+import com.lukeneedham.poetrybook.data.VersionDiff
+import com.lukeneedham.poetrybook.data.diffPoems
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -97,12 +108,26 @@ fun HistoryScreen(
                 color = colors.ink,
                 modifier = Modifier.align(Alignment.Center),
             )
-            IconButton(onClick = { notepadOpen = true }, modifier = Modifier.align(Alignment.CenterEnd)) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_notepad),
-                    contentDescription = stringResource(R.string.notepad),
-                    tint = colors.accent,
-                )
+            Row(Modifier.align(Alignment.CenterEnd)) {
+                if (currentPoem != null) {
+                    val showing = viewModel.showHistoryChanges
+                    IconButton(onClick = { viewModel.changeShowHistoryChanges(!showing) }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_compare),
+                            contentDescription = stringResource(
+                                if (showing) R.string.history_hide_changes else R.string.history_show_changes,
+                            ),
+                            tint = colors.accent.copy(alpha = if (showing) 1f else 0.45f),
+                        )
+                    }
+                }
+                IconButton(onClick = { notepadOpen = true }) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_notepad),
+                        contentDescription = stringResource(R.string.notepad),
+                        tint = colors.accent,
+                    )
+                }
             }
         }
         HorizontalDivider(color = colors.faintInk.copy(alpha = 0.25f))
@@ -115,7 +140,7 @@ fun HistoryScreen(
                 color = colors.faintInk,
                 modifier = Modifier.padding(24.dp),
             )
-            is VersionState.Found -> VersionPage(current.version, compareTo = currentPoem)
+            is VersionState.Found -> VersionPage(current.version, compareTo = currentPoem, showChanges = viewModel.showHistoryChanges)
         }
     }
 
@@ -130,7 +155,7 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun VersionPage(version: PoemVersion, compareTo: Poem?) {
+private fun VersionPage(version: PoemVersion, compareTo: Poem?, showChanges: Boolean) {
     val colors = paperColors()
     val titleStyle = TextStyle(
         fontFamily = PoemFont,
@@ -142,20 +167,11 @@ private fun VersionPage(version: PoemVersion, compareTo: Poem?) {
     )
     val bodyStyle = TextStyle(fontFamily = PoemFont, fontSize = 19.sp, lineHeight = 30.sp, color = colors.ink)
 
-    // What this version has that the current poem doesn't. Unknown if the current poem isn't at hand.
+    // How this version differs from the current poem. Unknown if the current poem isn't at hand.
     val titleDiff = remember(version, compareTo) { compareTo?.let { differingRanges(version.title, it.title) }.orEmpty() }
-    val bodyDiff = remember(version, compareTo) { compareTo?.let { differingRanges(version.body, it.body) }.orEmpty() }
-    val highlight = SpanStyle(background = colors.accent.copy(alpha = 0.28f))
-    fun highlighted(text: String, ranges: List<IntRange>) = buildAnnotatedString {
-        append(text)
-        ranges.forEach { addStyle(highlight, it.first, it.last + 1) }
-    }
-    val comparison = when {
-        compareTo == null -> null
-        titleDiff.isEmpty() && bodyDiff.isEmpty() && version.title == compareTo.title && version.body == compareTo.body ->
-            R.string.history_same_as_current
-        else -> R.string.history_differences
-    }
+    val diff = remember(version, compareTo) { compareTo?.let { diffPoems(version.body, it.body) } }
+    val same = compareTo != null && diff != null && diff.isSame && version.title == compareTo.title
+    val markWords = SpanStyle(background = EditedColor.copy(alpha = 0.5f))
 
     SelectionContainer(Modifier.fillMaxSize()) {
         Column(
@@ -170,6 +186,12 @@ private fun VersionPage(version: PoemVersion, compareTo: Poem?) {
                 color = colors.faintInk,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             )
+            val comparison = when {
+                compareTo == null -> null
+                same -> R.string.history_same_as_current
+                showChanges -> R.string.history_differences
+                else -> null
+            }
             if (comparison != null) {
                 Text(
                     text = stringResource(comparison),
@@ -182,7 +204,10 @@ private fun VersionPage(version: PoemVersion, compareTo: Poem?) {
                 text = if (version.title.isBlank()) {
                     AnnotatedString(stringResource(R.string.untitled))
                 } else {
-                    highlighted(version.title, titleDiff)
+                    buildAnnotatedString {
+                        append(version.title)
+                        if (showChanges) titleDiff.forEach { addStyle(markWords, it.first, it.last + 1) }
+                    }
                 },
                 style = if (version.title.isBlank()) {
                     titleStyle.copy(color = colors.faintInk, fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)
@@ -191,7 +216,115 @@ private fun VersionPage(version: PoemVersion, compareTo: Poem?) {
                 },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             )
-            Text(text = highlighted(version.body, bodyDiff), style = bodyStyle)
+            if (showChanges && diff != null) {
+                DiffBody(diff, bodyStyle)
+            } else {
+                Text(text = version.body, style = bodyStyle)
+            }
         }
     }
+}
+
+private val EditedColor = Color(0xFFE0A030)
+private val RemovedColor = Color(0xFFD05050)
+private val MovedColor = Color(0xFF4A86C8)
+private val AddedColor = Color(0xFF4C9A5F)
+
+/**
+ * The older version stanza by stanza and line by line, each marked with what became of it:
+ * a bar beside a stanza that moved, an arrow and a note beside a line that moved, a tint and
+ * highlighted words on an edited line, a red tint on a line that's gone, and a green note
+ * wherever lines were added since.
+ */
+@Composable
+private fun DiffBody(diff: VersionDiff, bodyStyle: TextStyle) {
+    val colors = paperColors()
+    val noteStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = PoemFont)
+    Column(Modifier.fillMaxWidth()) {
+        if (diff.addedAtStart > 0) AddedNote(diff.addedAtStart, noteStyle, Modifier.padding(bottom = 4.dp))
+        diff.stanzas.forEachIndexed { stanzaIndex, stanza ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
+                    .padding(top = if (stanzaIndex == 0) 0.dp else 18.dp),
+            ) {
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .background(if (stanza.movedTo != null) MovedColor else Color.Transparent),
+                )
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    if (stanza.movedTo != null) {
+                        val up = stanza.movedTo - 1 < stanzaIndex
+                        Text(
+                            text = (if (up) "↑ " else "↓ ") + stringResource(R.string.diff_moved_stanza, stanza.movedTo),
+                            style = noteStyle,
+                            color = MovedColor,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                    }
+                    stanza.lines.forEachIndexed { lineIndex, line ->
+                        DiffLineRow(line, stanzaIndex, lineIndex, diff.currentStanzaCount, bodyStyle, noteStyle)
+                        if (line.addedAfter > 0) AddedNote(line.addedAfter, noteStyle, Modifier.padding(vertical = 2.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiffLineRow(
+    line: DiffLine,
+    stanzaIndex: Int,
+    lineIndex: Int,
+    currentStanzaCount: Int,
+    bodyStyle: TextStyle,
+    noteStyle: TextStyle,
+) {
+    val tint = when (line.change) {
+        LineChange.SAME -> Color.Transparent
+        LineChange.MOVED -> MovedColor.copy(alpha = 0.14f)
+        LineChange.EDITED -> EditedColor.copy(alpha = 0.16f)
+        LineChange.REMOVED -> RemovedColor.copy(alpha = 0.18f)
+    }
+    val text = buildAnnotatedString {
+        append(line.text)
+        line.edited.forEach { addStyle(SpanStyle(background = EditedColor.copy(alpha = 0.5f)), it.first, it.last + 1) }
+    }
+    Column(Modifier.fillMaxWidth().background(tint, RoundedCornerShape(4.dp))) {
+        Text(text = text, style = bodyStyle)
+        val note = when {
+            line.change == LineChange.REMOVED -> stringResource(R.string.diff_removed)
+            line.movedTo != null -> {
+                val place = line.movedTo
+                val up = place.stanza - 1 < stanzaIndex || (place.stanza - 1 == stanzaIndex && place.line - 1 < lineIndex)
+                (if (up) "↑ " else "↓ ") + if (currentStanzaCount > 1) {
+                    stringResource(R.string.diff_moved_line_in_stanza, place.stanza, place.line)
+                } else {
+                    stringResource(R.string.diff_moved_line, place.line)
+                }
+            }
+            else -> null
+        }
+        if (note != null) {
+            Text(
+                text = note,
+                style = noteStyle,
+                color = if (line.change == LineChange.REMOVED) RemovedColor else MovedColor,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddedNote(count: Int, style: TextStyle, modifier: Modifier = Modifier) {
+    Text(
+        text = pluralStringResource(R.plurals.diff_added, count, count),
+        style = style.copy(fontStyle = FontStyle.Italic),
+        color = AddedColor,
+        modifier = modifier,
+    )
 }

@@ -65,6 +65,15 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         settings.shelfColumns = shelfColumns
     }
 
+    /** Whether an older version of a poem is shown with its differences from the current poem marked. */
+    var showHistoryChanges by mutableStateOf(settings.showHistoryChanges)
+        private set
+
+    fun changeShowHistoryChanges(show: Boolean) {
+        showHistoryChanges = show
+        settings.showHistoryChanges = show
+    }
+
     /** [books] in the order the bookshelf shows them. */
     val shelfBooks: List<Book>
         get() = books.sortedFor(bookSort)

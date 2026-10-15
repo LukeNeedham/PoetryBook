@@ -26,6 +26,15 @@ class AppSettingsTest {
 
     private fun prefs() = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
+    @Test
+    fun `history changes are hidden until switched on, and the choice is remembered`() {
+        assertEquals(false, settings.showHistoryChanges)
+        settings.showHistoryChanges = true
+        assertEquals(true, AppSettings(context).showHistoryChanges)
+        settings.showHistoryChanges = false
+        assertEquals(false, AppSettings(context).showHistoryChanges)
+    }
+
     // --- Shelf columns ---
 
     @Test
