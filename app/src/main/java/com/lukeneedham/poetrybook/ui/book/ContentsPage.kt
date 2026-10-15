@@ -28,7 +28,7 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
  * The first page of every book: a generated page listing every poem, like the contents sheet.
- * Tapping a row calls [onSelect] with that poem's index.
+ * Like the sheet, it ends with the new, blank poem. Tapping a row calls [onSelect] with that poem's index.
  */
 @Composable
 fun ContentsPage(
@@ -59,8 +59,6 @@ fun ContentsPage(
         HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = colors.faintInk.copy(alpha = 0.4f))
         LazyColumn(Modifier.weight(1f)) {
             itemsIndexed(poems, key = { _, poem -> poem.id }) { index, poem ->
-                // The blank poem at the end has nothing to list yet.
-                if (index == poems.lastIndex && poem.isBlank) return@itemsIndexed
                 ContentsRow(
                     number = index + 1,
                     poem = poem,
