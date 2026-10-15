@@ -50,6 +50,13 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs the app's resources and manifest to build a fake Android environment.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 // Room writes the database schema as JSON here on each build; commit it so migrations can be tested.
@@ -76,4 +83,6 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
