@@ -138,7 +138,7 @@ call, `clearAllTables` or `deleteDatabase`. It cannot prove that a migration kee
 what the per-migration `MigrationTestHelper` test is for. If the guard ever fails, fix the code; do not
 edit the guard.
 
-Version 1 is the first schema. As long as there is no released data, nothing needs migrating, but
+Version 1 is the first schema, and its exported JSON is committed at `app/schemas/com.lukeneedham.poetrybook.data.db.PoetryDatabase/1.json`. As long as there is no released data, nothing needs migrating, but
 the rule applies from the first release on, and adding the fallback "just while developing" is how
 it ends up shipped.
 
