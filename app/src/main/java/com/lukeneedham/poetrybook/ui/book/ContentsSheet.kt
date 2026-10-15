@@ -33,7 +33,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -51,10 +50,14 @@ import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
+import com.lukeneedham.poetrybook.ui.theme.TitleFont
 
 /**
  * The contents page: a sheet that drops down from the top of the screen and lists every poem.
- * Tapping a poem calls [onSelect]; new poems are started on the book's last page, not here. The handle at the bottom can be dragged up to close it.
+ * Tapping a poem calls [onSelect]; new poems are started on the book's last page, not here.
+ * Pressing and holding a poem lets you drag it to another place in the list, which calls
+ * [onMove]; the blank poem at the end can't be moved and nothing can be dragged below it.
+ * The handle at the bottom can be dragged up to close the sheet.
  */
 @Composable
 fun ContentsSheet(
@@ -62,7 +65,7 @@ fun ContentsSheet(
     poems: List<Poem>,
     currentIndex: Int,
     onSelect: (Int) -> Unit,
-    onOpenShelf: () -> Unit,
+    onMove: (from: Int, to: Int) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -107,23 +110,34 @@ fun ContentsSheet(
                     ) {
                         Text(
                             text = stringResource(R.string.contents),
-                            style = MaterialTheme.typography.titleLarge.copy(fontFamily = PoemFont),
+                            style = MaterialTheme.typography.titleLarge.copy(fontFamily = TitleFont),
                             modifier = Modifier.weight(1f),
                         )
-                        TextButton(onClick = onOpenShelf) { Text(stringResource(R.string.bookshelf)) }
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp))
 
                     val listState = rememberLazyListState(
                         initialFirstVisibleItemIndex = currentIndex.coerceAtLeast(0),
                     )
+                    val reorder = rememberReorderState(listState, movableCount = (poems.size - 1).coerceAtLeast(0), onMove = onMove)
                     LazyColumn(state = listState, modifier = Modifier.weight(1f, fill = false)) {
                         itemsIndexed(poems, key = { _, poem -> poem.id }) { index, poem ->
+                            val dragged = reorder.draggedKey == poem.id
                             ContentsRow(
                                 number = index + 1,
                                 poem = poem,
                                 current = index == currentIndex,
                                 onClick = { onSelect(index) },
+                                modifier = Modifier
+                                    .then(if (dragged) Modifier else Modifier.animateItem())
+                                    .reorderable(reorder, key = poem.id, enabled = index < poems.size - 1)
+                                    .then(
+                                        if (dragged) {
+                                            Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
                             )
                         }
                     }
@@ -141,9 +155,10 @@ private fun ContentsRow(
     poem: Poem,
     current: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),

@@ -11,9 +11,11 @@ import androidx.lifecycle.AndroidViewModel
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.AppSettings
 import com.lukeneedham.poetrybook.data.Book
+import com.lukeneedham.poetrybook.data.BookSort
 import com.lukeneedham.poetrybook.data.Library
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.data.PoemRepository
+import com.lukeneedham.poetrybook.data.sortedFor
 import com.lukeneedham.poetrybook.data.withOneBlankLast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +66,14 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     /** Every book in the chosen folder, for the bookshelf. */
     var books: List<Book> by mutableStateOf(emptyList())
         private set
+
+    /** How the bookshelf is ordered. */
+    var bookSort by mutableStateOf(settings.bookSort)
+        private set
+
+    /** [books] in the order the bookshelf shows them. */
+    val shelfBooks: List<Book>
+        get() = books.sortedFor(bookSort)
 
     /** The book being read, or null while on the bookshelf. */
     var currentBook: Book? by mutableStateOf(null)
@@ -133,7 +143,7 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun openLibrary(uri: Uri) =
-        Library(getApplication(), uri, getApplication<Application>().getString(R.string.misc_book))
+        Library(getApplication(), uri, getApplication<Application>().getString(R.string.misc_book), settings)
 
     private suspend fun listBooks(lib: Library): List<Book>? =
         withContext(Dispatchers.IO) { runCatching { lib.books() }.getOrNull() }
@@ -157,6 +167,11 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
             listBooks(lib)?.let { books = it }
             loadingBooks = false
         }
+    }
+
+    fun sortBooks(sort: BookSort) {
+        bookSort = sort
+        settings.bookSort = sort
     }
 
     /** Opens [book] and calls [onDone] with whether it could be read. */
@@ -193,13 +208,39 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** Creates a book called [name] and calls [onDone] with it, or null if that failed. */
-    fun createBook(name: String, onDone: (Book?) -> Unit) {
+    /** Creates a book called [name] with the cover [color] (ARGB) and calls [onDone] with it, or null if that failed. */
+    fun createBook(name: String, color: Int, onDone: (Book?) -> Unit) {
         val lib = library ?: return onDone(null)
         scope.launch {
-            val created = withContext(Dispatchers.IO) { runCatching { lib.createBook(name) }.getOrNull() }
-            if (created != null) refreshBooks()
+            val created = withContext(Dispatchers.IO) { runCatching { lib.createBook(name, color) }.getOrNull() }
+            if (created != null) books = books + created
             onDone(created)
+            if (created != null) refreshBooks()
+        }
+    }
+
+    /** Renames [book] and gives it the cover [color] (ARGB), and calls [onDone] with whether that worked. */
+    fun editBook(book: Book, name: String, color: Int, onDone: (Boolean) -> Unit) {
+        val lib = library ?: return onDone(false)
+        scope.launch {
+            val edited = withContext(Dispatchers.IO) { runCatching { lib.editBook(book, name, color) }.getOrNull() }
+            // Show the change straight away; the editor closes on onDone, and the shelf must not
+            // flash the old cover before the folder has been listed again.
+            if (edited != null) books = books.map { if (it.documentId == book.documentId) edited else it }
+            onDone(edited != null)
+            // Even a failed rename may have changed what the folder is called; look again.
+            refreshBooks()
+        }
+    }
+
+    /** Deletes [book] with all its poems and calls [onDone] with whether that worked. */
+    fun deleteBook(book: Book, onDone: (Boolean) -> Unit) {
+        val lib = library ?: return onDone(false)
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { runCatching { lib.deleteBook(book) }.isSuccess }
+            if (ok) books = books.filter { it.documentId != book.documentId }
+            onDone(ok)
+            refreshBooks()
         }
     }
 
@@ -227,8 +268,21 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         if (index < 0) return 0
         poems.removeAt(index)
         keepOneBlankPoemLast()
+        markUpdated()
         scheduleSave()
         return index.coerceAtMost(poems.lastIndex)
+    }
+
+    /**
+     * Moves the poem at page [from] to page [to]. The blank poem always stays last, so neither
+     * index may be that page.
+     */
+    fun movePoem(from: Int, to: Int) {
+        val movable = 0 until poems.lastIndex
+        if (from == to || from !in movable || to !in movable) return
+        poems.add(to, poems.removeAt(from))
+        markUpdated()
+        scheduleSave()
     }
 
     /** Writes any pending changes now, e.g. when the app goes to the background. */
@@ -245,7 +299,14 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         if (updated == poems[index]) return
         poems[index] = updated
         keepOneBlankPoemLast()
+        markUpdated()
         scheduleSave()
+    }
+
+    /** Records that the open book just changed, for sorting the shelf by last updated. */
+    private fun markUpdated() {
+        val book = currentBook ?: return
+        settings.saveBookUpdated(book.documentId, System.currentTimeMillis())
     }
 
     /**

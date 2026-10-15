@@ -77,6 +77,10 @@ fun BookScreen(
                 // follows the current page, which only changes when a turn has settled, so the icon
                 // keeps its look while pages turn instead of flashing.
                 canDelete = currentPoem != null && !currentPoem.isBlank,
+                onOpenShelf = {
+                    stopEditing()
+                    onOpenShelf()
+                },
                 onOpenContents = {
                     stopEditing()
                     contentsOpen = true
@@ -93,6 +97,11 @@ fun BookScreen(
                 state = pageState,
                 pageCount = poems.size,
                 gesturesEnabled = !editing && !contentsOpen,
+                // Tapping the middle of the unstarted poem at the end starts writing in it.
+                onCenterTap = {
+                    val page = poems.getOrNull(pageState.currentPage)
+                    if (page != null && page.isBlank && !pageState.isTurning) editing = true
+                },
                 modifier = Modifier.weight(1f),
             ) { index ->
                 val poem = poems.getOrNull(index) ?: return@PageTurnBook
@@ -114,10 +123,12 @@ fun BookScreen(
                 contentsOpen = false
                 pageState.animateTo(index)
             },
-            onOpenShelf = {
-                contentsOpen = false
-                stopEditing()
-                onOpenShelf()
+            onMove = { from, to ->
+                // The page on show follows its poem to wherever that goes.
+                val shownId = poems.getOrNull(pageState.currentPage)?.id
+                viewModel.movePoem(from, to)
+                val shownIndex = poems.indexOfFirst { it.id == shownId }
+                if (shownIndex >= 0 && shownIndex != pageState.currentPage) pageState.snapTo(shownIndex)
             },
             onDismiss = { contentsOpen = false },
         )

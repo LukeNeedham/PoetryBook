@@ -20,8 +20,8 @@ import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
- * The buttons along the top of the book: a ribbon for the contents on the left, and on the right a
- * bin to delete the current poem and a pencil to edit it.
+ * The buttons along the top of the book: the bookshelf and a ribbon for the contents on the left,
+ * and on the right a bin to delete the current poem and a pencil to edit it.
  *
  * It's a band of its own above the pages, with its own paper, so it never turns with them.
  * Whoever places it deals with the status bar inset.
@@ -30,6 +30,7 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 internal fun BookToolbar(
     editing: Boolean,
     canDelete: Boolean,
+    onOpenShelf: () -> Unit,
     onOpenContents: () -> Unit,
     onDelete: () -> Unit,
     onToggleEditing: () -> Unit,
@@ -44,6 +45,13 @@ internal fun BookToolbar(
                 .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            IconButton(onClick = onOpenShelf) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_shelf),
+                    contentDescription = stringResource(R.string.bookshelf),
+                    tint = colors.accent,
+                )
+            }
             IconButton(onClick = onOpenContents) {
                 Icon(
                     painter = painterResource(R.drawable.ic_ribbon),

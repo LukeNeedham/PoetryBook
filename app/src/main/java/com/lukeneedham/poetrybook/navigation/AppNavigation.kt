@@ -81,11 +81,15 @@ private fun AppNavDisplay(viewModel: PoemBookViewModel, start: NavKey) {
             entry<Shelf> {
                 LaunchedEffect(Unit) { viewModel.refreshBooks() }
                 ShelfScreen(
-                    books = viewModel.books,
+                    books = viewModel.shelfBooks,
+                    sort = viewModel.bookSort,
+                    onSortChange = viewModel::sortBooks,
                     onOpenBook = { book ->
                         viewModel.openBook(book) { ok -> if (ok) backStack.add(Book) }
                     },
-                    onCreateBook = { name, onDone -> viewModel.createBook(name) { onDone(it != null) } },
+                    onCreateBook = { name, color, onDone -> viewModel.createBook(name, color) { onDone(it != null) } },
+                    onEditBook = { book, name, color, onDone -> viewModel.editBook(book, name, color, onDone) },
+                    onDeleteBook = { book, onDone -> viewModel.deleteBook(book, onDone) },
                     onOpenSettings = { backStack.add(Settings) },
                 )
             }

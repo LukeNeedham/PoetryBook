@@ -24,5 +24,5 @@ fun PoetryBookTheme(
         else -> lightColorScheme()
     }
 
-    MaterialTheme(colorScheme = colorScheme, content = content)
+    MaterialTheme(colorScheme = colorScheme, typography = AppTypography, content = content)
 }
