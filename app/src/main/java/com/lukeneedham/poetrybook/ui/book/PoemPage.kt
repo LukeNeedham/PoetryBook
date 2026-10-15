@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Poem
@@ -165,15 +166,25 @@ fun PoemPage(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
                 if (editing) {
-                    // Start typing at the first line fully on screen, which is where you were reading.
+                    // Start typing at the end of the first line fully on screen, so the cursor is already
+                    // in view and nothing needs to scroll.
                     LaunchedEffect(Unit) {
                         val offset = readingLayout?.let { layout ->
                             val top = bodyScroll.value
-                            val line = (0 until layout.lineCount).firstOrNull { layout.getLineTop(it) >= top - 0.5f }
-                                ?: (layout.lineCount - 1)
-                            layout.getLineStart(line.coerceAtLeast(0))
+                            val line = (0 until layout.lineCount).firstOrNull {
+                                layout.getLineTop(it) >= top - 0.5f && layout.getLineBottom(it) > layout.getLineTop(it)
+                            } ?: (layout.lineCount - 1)
+                            layout.getLineEnd(line.coerceAtLeast(0), visibleEnd = true)
                         } ?: 0
                         bodyState.edit { selection = TextRange(offset.coerceIn(0, length)) }
+                    }
+                    // Whatever the text field does to show the cursor, the text stays where it was while
+                    // the editor settles in.
+                    LaunchedEffect(Unit) {
+                        val target = bodyScroll.value
+                        withTimeoutOrNull(500) {
+                            snapshotFlow { bodyScroll.value }.collect { if (it != target) bodyScroll.scrollTo(target) }
+                        }
                     }
                     val focusRequester = remember { FocusRequester() }
                     // Also when the signal changes, to take focus back after something else, like the notepad, had it.

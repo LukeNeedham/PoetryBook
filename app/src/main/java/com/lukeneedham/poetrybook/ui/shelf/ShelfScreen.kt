@@ -443,23 +443,23 @@ internal fun MiniBook(name: String, color: Int?, modifier: Modifier = Modifier) 
     val cover = coverColor(Book(id = "", name = name, poemCount = 0, color = color))
     Box(
         modifier = modifier
-            .size(width = 36.dp, height = 50.dp)
+            .size(width = 54.dp, height = 75.dp)
             .background(cover, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp, topStart = 1.dp, bottomStart = 1.dp)),
     ) {
         Box(
             Modifier
-                .width(5.dp)
+                .width(7.dp)
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.22f), RoundedCornerShape(topStart = 1.dp, bottomStart = 1.dp)),
         )
         Text(
             text = name,
-            style = coverTitleStyle().copy(fontSize = 7.sp, lineHeight = 8.sp),
+            style = coverTitleStyle().copy(fontSize = 6.sp, lineHeight = 7.sp),
             maxLines = 4,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(start = 9.dp, end = 3.dp),
+                .padding(start = 12.dp, end = 4.dp),
         )
     }
 }
