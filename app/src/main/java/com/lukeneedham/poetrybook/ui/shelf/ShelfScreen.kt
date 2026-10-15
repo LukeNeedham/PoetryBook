@@ -90,14 +90,14 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 private const val NewBook = ""
 
 /**
- * The bookshelf: every book in the chosen folder as a cover. Tap one to read it.
+ * The bookshelf: every book as a cover. Tap one to read it.
  *
  * The last tile starts a new book: its cover becomes editable right there, name and colour. The
  * long press on a cover does the same for an existing book, which stays where it is.
  *
  * @param sort how [books] are ordered, which the caller does; [onSortChange] is called when the user picks another.
  * @param onCreateBook creates a book with the given name and cover colour (ARGB); reports whether that worked.
- * @param onDeleteBook deletes a book and all its poems; reports whether that worked.
+ * @param onDeleteBook moves a book and all its poems to the bin; reports whether that worked.
  * @param onEditBook renames a book and gives it a cover colour (ARGB); reports whether that worked.
  */
 @Composable
@@ -113,7 +113,7 @@ fun ShelfScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = paperColors()
-    // The document id of the book being edited, NewBook for the one being created, or null.
+    // The id of the book being edited, NewBook for the one being created, or null.
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var failed by rememberSaveable { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
@@ -166,15 +166,14 @@ fun ShelfScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            items(books, key = { it.documentId }) { book ->
-                if (editing == book.documentId) {
+            items(books, key = { it.id }) { book ->
+                if (editing == book.id) {
                     BookEditor(
                         initialName = book.name,
                         placeholder = stringResource(R.string.book_name),
                         viewportHeight = { gridState.layoutInfo.viewportSize.height },
                         initialColor = coverColor(book),
-                        nameEditable = !book.isLooseFiles,
-                        onDelete = if (book.isLooseFiles) null else ({ deleting = book }),
+                        onDelete = { deleting = book },
                         failed = failed,
                         onConfirm = { name, color, onDone ->
                             failed = false
@@ -194,7 +193,7 @@ fun ShelfScreen(
                         onClick = { onOpenBook(book) },
                         onEdit = {
                             failed = false
-                            editing = book.documentId
+                            editing = book.id
                         },
                     )
                 }
@@ -575,9 +574,9 @@ private fun ShelfPreview() {
     PoetryBookTheme {
         ShelfScreen(
             books = listOf(
-                Book("a", "Love poems", false, 12),
-                Book("b", "Winter", false, 1),
-                Book("c", "Misc", true, 0),
+                Book("a", "Love poems", 12),
+                Book("b", "Winter", 1),
+                Book("c", "Misc", 0),
             ),
             sort = BookSort.ALPHABETICAL,
             onSortChange = {},

@@ -11,34 +11,20 @@
 
     <string name="delete_poem">Delete poem</string>
     <string name="delete_poem_title">Delete this poem?</string>
-    <string name="delete_poem_message">This can\'t be undone.</string>
+    <string name="delete_poem_message">Are you sure you want to delete it? Deleted poems go to the bin first, where you can restore them or delete them for good (Settings → Bin).</string>
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
 
-
     <string name="back">Back</string>
     <string name="settings">Settings</string>
-    <string name="choose_folder">Choose folder</string>
 
-    <string name="onboarding_welcome_title">Your book of poems</string>
-    <string name="onboarding_welcome_body">Write your own poems, one to a page, and turn through them like a real book.</string>
-    <string name="onboarding_continue">Continue</string>
-    <string name="onboarding_folder_title">Where should your poems live?</string>
-    <string name="onboarding_folder_body">Your poems are saved as plain text files, named after each poem, in a folder you choose. Every folder inside it becomes a book on your bookshelf, and text files directly in it go in a book called Misc. Because it\'s outside the app, your poems are still there if you reinstall.
-
-Pick or create a folder such as Documents/Poems, then allow PoetryBook to use it.</string>
-    <string name="onboarding_folder_failed">That folder couldn\'t be used. Please choose another one.</string>
-    <string name="onboarding_folder_lost">PoetryBook can no longer reach your poems folder. Choose it again, or pick a new one.</string>
-
-    <string name="poems_folder">Poems folder</string>
-    <string name="poems_folder_description">Every folder inside it is a book. Each poem is a text file in its book, named after its title. Text files directly in this folder go in the Misc book.</string>
-    <string name="no_folder">No folder chosen</string>
-    <string name="open_in_file_browser">Open in file browser</string>
-    <string name="choose_different_folder">Choose a different folder</string>
-    <string name="change_folder_note">Choosing a different folder loads the books in that folder. Your current poems stay in the old folder.</string>
-    <string name="switch_folder_title">Switch poems folder?</string>
-    <string name="switch_folder_message">The bookshelf will show the books in the folder you choose. Your current books and poems will be left in the old folder, where they are now.</string>
-    <string name="no_file_browser">No app found to open the folder</string>
+    <string name="history">History</string>
+    <string name="history_current">Current version</string>
+    <string name="history_version">Version from %1$s</string>
+    <string name="history_read_only">This is an earlier version of the poem. It can\'t be edited here, but you can select and copy its text.</string>
+    <string name="version_not_found">That version no longer exists.</string>
+    <string name="notepad">Notepad</string>
+    <string name="notepad_hint">Ideas, rhymes, metaphors… The notepad belongs to the poem and is the same in every version.</string>
 
     <string name="bookshelf">Bookshelf</string>
     <string name="misc_book">Misc</string>
@@ -51,8 +37,8 @@ Pick or create a folder such as Documents/Poems, then allow PoetryBook to use it
     <string name="delete_book">Delete book</string>
     <string name="delete_book_title">Delete %1$s?</string>
     <plurals name="delete_book_message">
-        <item quantity="one">The book and its %d poem will be deleted. This can\'t be undone.</item>
-        <item quantity="other">The book and its %d poems will be deleted. This can\'t be undone.</item>
+        <item quantity="one">Are you sure you want to delete it? The book and its %d poem go to the bin first, where you can restore them or delete them for good (Settings → Bin).</item>
+        <item quantity="other">Are you sure you want to delete it? The book and its %d poems go to the bin first, where you can restore them or delete them for good (Settings → Bin).</item>
     </plurals>
     <string name="create">Create</string>
     <string name="book_colour">Cover colour</string>
@@ -61,4 +47,23 @@ Pick or create a folder such as Documents/Poems, then allow PoetryBook to use it
         <item quantity="one">%d poem</item>
         <item quantity="other">%d poems</item>
     </plurals>
+
+    <string name="import_title">Import</string>
+    <string name="import_description">Copy poems from a folder into the app, once. Every folder inside it becomes a book, and each text file in a book folder becomes a poem. The app doesn\'t keep the folder or change it afterwards.</string>
+    <string name="import_choose_folder">Choose folder to import</string>
+    <string name="importing">Importing…</string>
+    <string name="import_failed">That folder couldn\'t be read. Please choose another one.</string>
+    <string name="import_done">Imported %1$d books and %2$d poems.</string>
+
+    <string name="bin">Bin</string>
+    <string name="bin_description">Deleted books and poems wait here until you restore them or delete them for good.</string>
+    <string name="bin_books">Books</string>
+    <string name="bin_poems">Poems</string>
+    <string name="bin_empty">Nothing in the bin.</string>
+    <string name="bin_poem_from">From %1$s</string>
+    <string name="restore">Restore</string>
+    <string name="delete_forever">Delete forever</string>
+    <string name="delete_forever_poem_message">This wipes the poem and all of its history and notes. It can\'t be undone.</string>
+    <string name="delete_forever_book_message">This wipes the book, all of its poems and their history and notes. It can\'t be undone.</string>
+    <string name="bin_item_gone">This is no longer in the bin.</string>
 </resources>

@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -35,6 +36,7 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 fun BookScreen(
     viewModel: PoemBookViewModel,
     onOpenShelf: () -> Unit,
+    onOpenVersion: (poemId: String, createdAt: Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val poems = viewModel.poems
@@ -42,20 +44,26 @@ fun BookScreen(
     var editing by rememberSaveable { mutableStateOf(false) }
     var contentsOpen by rememberSaveable { mutableStateOf(false) }
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
-    var shownBook by rememberSaveable { mutableStateOf(viewModel.currentBook?.documentId) }
+    var historyOpen by rememberSaveable { mutableStateOf(false) }
+    var notepadOpen by rememberSaveable { mutableStateOf(false) }
+    var shownBook by rememberSaveable { mutableStateOf(viewModel.currentBook?.id) }
     val focusManager = LocalFocusManager.current
 
+    // Finishing an edit saves the poem as a new version, if anything changed.
     fun stopEditing() {
+        if (editing) poems.getOrNull(pageState.currentPage)?.let { viewModel.commit(it.id) }
         focusManager.clearFocus()
         editing = false
     }
 
     // A different book starts from its first page.
-    LaunchedEffect(viewModel.currentBook?.documentId) {
-        val book = viewModel.currentBook?.documentId
+    LaunchedEffect(viewModel.currentBook?.id) {
+        val book = viewModel.currentBook?.id
         if (book != null && book != shownBook) {
             shownBook = book
             editing = false
+            historyOpen = false
+            notepadOpen = false
             pageState.snapTo(0)
         }
     }
@@ -77,6 +85,33 @@ fun BookScreen(
                 // follows the current page, which only changes when a turn has settled, so the icon
                 // keeps its look while pages turn instead of flashing.
                 canDelete = currentPoem != null && !currentPoem.isBlank,
+                // Only a poem that has been saved has a history and a notepad.
+                hasPoem = currentPoem != null && viewModel.isStored(currentPoem.id),
+                onOpenHistory = {
+                    if (!pageState.isTurning) {
+                        stopEditing()
+                        historyOpen = true
+                    }
+                },
+                onOpenNotepad = {
+                    if (!pageState.isTurning) {
+                        stopEditing()
+                        notepadOpen = true
+                    }
+                },
+                historyMenu = {
+                    if (currentPoem != null) {
+                        HistoryMenu(
+                            expanded = historyOpen,
+                            versions = remember(currentPoem.id) { viewModel.history(currentPoem.id) },
+                            onSelect = { version ->
+                                historyOpen = false
+                                onOpenVersion(currentPoem.id, version.createdAt)
+                            },
+                            onDismiss = { historyOpen = false },
+                        )
+                    }
+                },
                 onOpenShelf = {
                     stopEditing()
                     onOpenShelf()
@@ -131,6 +166,15 @@ fun BookScreen(
                 if (shownIndex >= 0 && shownIndex != pageState.currentPage) pageState.snapTo(shownIndex)
             },
             onDismiss = { contentsOpen = false },
+        )
+    }
+
+    val notepadPoem = poems.getOrNull(pageState.currentPage)
+    if (notepadOpen && notepadPoem != null && viewModel.isStored(notepadPoem.id)) {
+        NotepadSheet(
+            viewModel = viewModel,
+            poemId = notepadPoem.id,
+            onDismiss = { notepadOpen = false },
         )
     }
 
