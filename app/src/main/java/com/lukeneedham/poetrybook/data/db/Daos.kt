@@ -32,6 +32,11 @@ data class BinPoemRow(
     val deletedAt: Long,
 )
 
+/**
+ * Joins a poem `p` to its newest version `v`. The primary key of poem_versions starts with poemId
+ * and then createdAt, so the MAX is an index lookup. Every poem has at least one version, because
+ * a poem and its first version are always inserted in the same transaction.
+ */
 private const val LATEST = "v.createdAt = (SELECT MAX(createdAt) FROM poem_versions WHERE poemId = p.id)"
 
 @Dao

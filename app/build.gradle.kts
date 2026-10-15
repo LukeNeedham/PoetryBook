@@ -52,6 +52,11 @@ android {
     }
 }
 
+// Room writes the database schema as JSON here on each build; commit it so migrations can be tested.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

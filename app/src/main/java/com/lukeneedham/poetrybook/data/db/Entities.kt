@@ -5,7 +5,20 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-/** A book. [deletedAt] is set while it sits in the bin; its poems stay attached to it. */
+// The schema, its relations and the reasons for them are written up in docs/database.md.
+// Timestamps are epoch milliseconds (UTC). Ids are random UUID strings generated in the app.
+
+/**
+ * A book on the shelf.
+ *
+ * - [color] is the cover colour as ARGB; null means "never chosen", and the UI derives a default from the name.
+ * - [updatedAt] is deliberately stored rather than derived from the poems' versions: the shelf sorts
+ *   by it, and it must also survive imports (which set it from file times) and moves to the bin.
+ * - [deletedAt] is null for a live book. A non-null value means the book is in the bin since then.
+ *   Its poems are not touched when it is binned, so restoring the book brings back exactly what was in it.
+ *
+ * Book names are not unique: two books may share a name.
+ */
 @Entity(tableName = "books")
 data class BookEntity(
     @PrimaryKey val id: String,
@@ -16,11 +29,25 @@ data class BookEntity(
 )
 
 /**
- * A poem. Its title and text live in [PoemVersionEntity]; the latest version is the current one.
- * The [notes] are the poem's notepad, shared by all its versions.
+ * A poem: the identity that all of its versions hang off, plus the things that belong to the poem
+ * as a whole rather than to one version.
  *
- * [position] is the page number (from 0) among the book's poems that aren't in the bin. A poem
- * in the bin keeps the position it had so it can go back to the same page.
+ * The title and text are not here. They are in [PoemVersionEntity]; the poem's current title and
+ * text are those of its newest version, which is looked up rather than copied here, so there is
+ * exactly one place each fact is stored.
+ *
+ * - [bookId] is the book it is in (many poems to one book). Deleting a book for good deletes its poems.
+ * - [position] is the page number, counting from 0, among the book's live poems. For live poems it
+ *   is dense (0, 1, 2…). It is not unique-constrained, because shifting a range by one is a single
+ *   UPDATE and SQLite checks uniqueness row by row. For a poem in the bin it is the page it had
+ *   when binned, kept so that restore can put it back there; it is meaningless for ordering the book.
+ * - [notes] is the poem's notepad: one per poem and shared by every version, which is why it is a
+ *   column here (one-to-one) and not in the version table.
+ * - [deletedAt] is null for a live poem; non-null means it is in the bin since then. A binned poem
+ *   keeps its versions and notes.
+ *
+ * The index serves "the live poems of a book in page order", the app's hottest query, and also
+ * the foreign key to [BookEntity] (its first column).
  */
 @Entity(
     tableName = "poems",
@@ -32,7 +59,7 @@ data class BookEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("bookId")],
+    indices = [Index(value = ["bookId", "deletedAt", "position"])],
 )
 data class PoemEntity(
     @PrimaryKey val id: String,
@@ -42,7 +69,18 @@ data class PoemEntity(
     val deletedAt: Long? = null,
 )
 
-/** The poem as it was from [createdAt] (epoch millis), when that edit was saved. */
+/**
+ * One saved state of a poem's title and text: the poem as it was from [createdAt], when that edit
+ * was saved, until the next version.
+ *
+ * Versions are append-only: the app never updates one. [createdAt] is what identifies a version
+ * within its poem, so the key is the pair ([poemId], [createdAt]) — a timestamp alone would not be
+ * unique across poems, as an import creates many at once. The app keeps the timestamps of one
+ * poem strictly increasing, so newest-first order is well defined.
+ *
+ * Deleting a poem for good deletes all its versions. The key's index also serves the foreign key
+ * and "the newest version of a poem".
+ */
 @Entity(
     tableName = "poem_versions",
     primaryKeys = ["poemId", "createdAt"],

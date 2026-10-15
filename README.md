@@ -8,7 +8,7 @@ An Android book for your own poetry. Every page is a poem you wrote: swipe acros
 - A toolbar above the pages, with a ribbon button for **Contents**, and on the right the poem's **History**, its **Notepad**, a bin to **delete** the poem (with a confirmation) and a pencil to **edit** it (title and text). It is not part of the turning page; the pages turn below it
 - **Contents** drops down from the top like a reversed bottom sheet, listing every poem. Tap one to turn straight to it. Its one button goes back to the **Bookshelf**
 - **Bookshelf**: every book is a cover on the shelf. Create, rename, recolour and delete books from there
-- **Stored in a Room database** (books, poems, poem versions), not in files
+- **Stored in a Room database** (books, poems, poem versions), not in files. The schema and the reasons for it are in [docs/database.md](docs/database.md)
 - **History**: tapping the tick after editing saves a new *version* of the poem, but only if the title or text changed. The history drop-down lists the versions (timestamp, title, first two lines); picking one opens it on a read-only page where the text can be selected and copied
 - **Notepad**: a bottom sheet that is always a text field, for rhymes, metaphors and other ideas. It belongs to the poem as a whole, so every version shares it
 - **Bin**: deleting a book or poem moves it to the bin (Settings → Bin) instead of wiping it. From the bin you can preview an item and restore it (a poem returns to its book and page) or delete it for good, which wipes its history too. There is no "empty bin"
