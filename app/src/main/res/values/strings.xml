@@ -32,7 +32,7 @@
     <string name="history_same_as_current">This is the same as the current version.</string>
     <string name="history_differences">Highlighted text is not in the current version.</string>
     <string name="notepad">Notepad</string>
-    <string name="notepad_hint">Ideas, rhymes, metaphors… The notepad belongs to the poem and is the same in every version.</string>
+    <string name="notepad_hint">Ideas, rhymes, metaphors…</string>
 
     <string name="bookshelf">Bookshelf</string>
     <string name="misc_book">Misc</string>
