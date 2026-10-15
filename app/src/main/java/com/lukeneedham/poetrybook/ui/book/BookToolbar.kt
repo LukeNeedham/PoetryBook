@@ -21,7 +21,11 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
  * The buttons along the top of the book: the bookshelf and a ribbon for the contents on the left,
- * and on the right a bin to delete the current poem and a pencil to edit it.
+ * and on the right the poem's history, its notepad, a bin to delete it and a pencil to edit it.
+ * The history and notepad only work for a poem that has been saved, so they are greyed out for the
+ * blank page at the end.
+ *
+ * @param historyMenu the drop-down of earlier versions, placed under the history button.
  *
  * It's a band of its own above the pages, with its own paper, so it never turns with them.
  * Whoever places it deals with the status bar inset.
@@ -30,6 +34,10 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 internal fun BookToolbar(
     editing: Boolean,
     canDelete: Boolean,
+    hasPoem: Boolean,
+    onOpenHistory: () -> Unit,
+    onOpenNotepad: () -> Unit,
+    historyMenu: @Composable () -> Unit,
     onOpenShelf: () -> Unit,
     onOpenContents: () -> Unit,
     onDelete: () -> Unit,
@@ -60,6 +68,23 @@ internal fun BookToolbar(
                 )
             }
             Box(Modifier.weight(1f))
+            Box {
+                IconButton(onClick = onOpenHistory, enabled = hasPoem) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_history),
+                        contentDescription = stringResource(R.string.history),
+                        tint = colors.accent.copy(alpha = if (hasPoem) 1f else 0.35f),
+                    )
+                }
+                historyMenu()
+            }
+            IconButton(onClick = onOpenNotepad, enabled = hasPoem) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_notepad),
+                    contentDescription = stringResource(R.string.notepad),
+                    tint = colors.accent.copy(alpha = if (hasPoem) 1f else 0.35f),
+                )
+            }
             // Greyed out while there is nothing written to delete.
             IconButton(onClick = onDelete, enabled = canDelete) {
                 Icon(

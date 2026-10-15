@@ -1,69 +1,52 @@
 package com.lukeneedham.poetrybook.ui.book
 
 import android.app.Application
-import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.AppSettings
+import com.lukeneedham.poetrybook.data.BinBook
+import com.lukeneedham.poetrybook.data.BinPoem
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
-import com.lukeneedham.poetrybook.data.Library
+import com.lukeneedham.poetrybook.data.DirectoryImporter
+import com.lukeneedham.poetrybook.data.ImportResult
 import com.lukeneedham.poetrybook.data.Poem
-import com.lukeneedham.poetrybook.data.PoemRepository
+import com.lukeneedham.poetrybook.data.PoemStore
+import com.lukeneedham.poetrybook.data.PoemVersion
+import com.lukeneedham.poetrybook.data.db.PoetryDatabase
 import com.lukeneedham.poetrybook.data.sortedFor
 import com.lukeneedham.poetrybook.data.withOneBlankLast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-enum class BookStatus {
-    /** Looking at the poems folder. */
-    LOADING,
-
-    /** There's no usable poems folder: first launch, or access to it was lost. */
-    NEEDS_FOLDER,
-
-    READY,
-}
-
 /**
- * Owns the library and the book being read. Poems live as text files in the folder the user
- * chose, one subfolder per book; this keeps the open book's poems in memory and writes changes
- * back shortly after each edit.
+ * Owns the shelf and the book being read. Books and poems live in the database; this keeps the
+ * open book's poems in memory so typing is instant, and writes them as a new version of the poem
+ * when an edit is finished (see [commit]).
  */
 class PoemBookViewModel(application: Application) : AndroidViewModel(application) {
     private val settings = AppSettings(application)
+    private val store = PoemStore(PoetryDatabase.get(application))
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val storageLock = Mutex()
-    private var library: Library? = null
-    private var repository: PoemRepository? = null
-    private var saveJob: Job? = null
 
-    var status by mutableStateOf(BookStatus.LOADING)
-        private set
+    /** Database work runs one job at a time, in the order it was asked for. */
+    private val storeLock = Mutex()
 
-    /** True when a folder was chosen before but can no longer be read. */
-    var folderLost by mutableStateOf(false)
-        private set
-
-    var folderUri: Uri? by mutableStateOf(null)
-        private set
-
-    /** Every book in the chosen folder, for the bookshelf. */
+    /** Every book on the shelf, from the database. */
     var books: List<Book> by mutableStateOf(emptyList())
         private set
 
@@ -79,94 +62,25 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     var currentBook: Book? by mutableStateOf(null)
         private set
 
-    /** True while the bookshelf is looking at the folder. */
-    var loadingBooks by mutableStateOf(false)
-        private set
-
     /**
-     * The open book's poems in page order. The last one is always a blank, unstarted poem, and
-     * only the last one is: it's where the next poem gets written.
+     * The open book's poems in page order, as they are being edited. The last one is always a
+     * blank, unstarted poem, and only the last one is: it's where the next poem gets written.
      */
     val poems = mutableStateListOf<Poem>()
 
+    /** What each poem looked like when it was last written to the database. Missing: not stored yet. */
+    private val stored = mutableStateMapOf<String, Poem>()
+
+    /** Deleted books and poems, for the bin. */
+    var binBooks: List<BinBook> by mutableStateOf(emptyList())
+        private set
+    var binPoems: List<BinPoem> by mutableStateOf(emptyList())
+        private set
+
     init {
-        scope.launch { restore() }
-    }
-
-    private suspend fun restore() {
-        val uri = settings.folderUri
-        if (uri == null) {
-            status = BookStatus.NEEDS_FOLDER
-            return
-        }
-        val lib = if (hasAccess(uri)) openLibrary(uri) else null
-        val found = lib?.let { listBooks(it) }
-        if (lib == null || found == null) {
-            folderLost = true
-            status = BookStatus.NEEDS_FOLDER
-            return
-        }
-        adopt(uri, lib, found)
-        status = BookStatus.READY
-    }
-
-    /**
-     * Starts using [uri], a folder just picked with the system picker, and calls [onDone] with
-     * whether it worked. The shelf then shows the books in that folder. Poems from the previous
-     * folder stay there, untouched.
-     */
-    fun chooseFolder(uri: Uri, onDone: (Boolean) -> Unit) {
-        scope.launch {
-            val granted = runCatching {
-                getApplication<Application>().contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                )
-            }.isSuccess
-            val lib = if (granted) openLibrary(uri) else null
-            val found = lib?.let { listBooks(it) }
-            if (lib == null || found == null) {
-                onDone(false)
-                return@launch
-            }
-
-            // Changes made just before switching belong to the folder they were made in.
-            saveJob?.cancel()
-            saveNow()
-
-            val previous = folderUri
-            adopt(uri, lib, found)
-            if (previous != null && previous != uri) releaseAccess(previous)
-            status = BookStatus.READY
-            onDone(true)
-        }
-    }
-
-    private fun openLibrary(uri: Uri) =
-        Library(getApplication(), uri, getApplication<Application>().getString(R.string.misc_book), settings)
-
-    private suspend fun listBooks(lib: Library): List<Book>? =
-        withContext(Dispatchers.IO) { runCatching { lib.books() }.getOrNull() }
-
-    private fun adopt(uri: Uri, lib: Library, found: List<Book>) {
-        library = lib
-        repository = null
-        currentBook = null
-        poems.clear()
-        books = found
-        folderUri = uri
-        folderLost = false
-        settings.folderUri = uri
-    }
-
-    /** Looks at the folder again, e.g. when the bookshelf is shown, to pick up new books and counts. */
-    fun refreshBooks() {
-        val lib = library ?: return
-        scope.launch {
-            loadingBooks = true
-            listBooks(lib)?.let { books = it }
-            loadingBooks = false
-        }
+        scope.launch { store.observeBooks().collect { books = it } }
+        scope.launch { store.observeBinBooks().collect { binBooks = it } }
+        scope.launch { store.observeBinPoems().collect { binPoems = it } }
     }
 
     fun sortBooks(sort: BookSort) {
@@ -174,19 +88,18 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         settings.bookSort = sort
     }
 
+    // --- Books ---
+
     /** Opens [book] and calls [onDone] with whether it could be read. */
     fun openBook(book: Book, onDone: (Boolean) -> Unit) {
-        val lib = library ?: return onDone(false)
         scope.launch {
-            val repo = PoemRepository(lib.folderOf(book), settings)
-            val loaded = withContext(Dispatchers.IO) { runCatching { repo.load() }.getOrNull() }
+            val loaded = runCatching { locked { store.poems(book.id) } }.getOrNull()
             if (loaded == null) {
                 onDone(false)
                 return@launch
             }
-            saveJob?.cancel()
-            saveNow()
-            repository = repo
+            stored.clear()
+            loaded.forEach { stored[it.id] = it }
             poems.clear()
             poems.addAll(loaded)
             keepOneBlankPoemLast()
@@ -195,102 +108,44 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** Puts the open book back on the shelf, saving it first. */
+    /** Puts the open book back on the shelf, saving any finished edits first. */
     fun closeBook() {
         if (currentBook == null) return
-        saveJob?.cancel()
-        scope.launch {
-            saveNow()
-            repository = null
-            currentBook = null
-            poems.clear()
-            refreshBooks()
-        }
+        commitAll()
+        stored.clear()
+        currentBook = null
+        poems.clear()
     }
 
-    /** Creates a book called [name] with the cover [color] (ARGB) and calls [onDone] with it, or null if that failed. */
-    fun createBook(name: String, color: Int, onDone: (Book?) -> Unit) {
-        val lib = library ?: return onDone(null)
+    /** Creates a book called [name] with the cover [color] (ARGB) and calls [onDone] with whether that worked. */
+    fun createBook(name: String, color: Int, onDone: (Boolean) -> Unit) {
         scope.launch {
-            val created = withContext(Dispatchers.IO) { runCatching { lib.createBook(name, color) }.getOrNull() }
-            if (created != null) books = books + created
-            onDone(created)
-            if (created != null) refreshBooks()
+            val ok = runCatching { locked { store.createBook(name, color) } }.isSuccess
+            onDone(ok)
         }
     }
 
     /** Renames [book] and gives it the cover [color] (ARGB), and calls [onDone] with whether that worked. */
     fun editBook(book: Book, name: String, color: Int, onDone: (Boolean) -> Unit) {
-        val lib = library ?: return onDone(false)
         scope.launch {
-            val edited = withContext(Dispatchers.IO) { runCatching { lib.editBook(book, name, color) }.getOrNull() }
-            // Show the change straight away; the editor closes on onDone, and the shelf must not
-            // flash the old cover before the folder has been listed again.
-            if (edited != null) books = books.map { if (it.documentId == book.documentId) edited else it }
-            onDone(edited != null)
-            // Even a failed rename may have changed what the folder is called; look again.
-            refreshBooks()
-        }
-    }
-
-    /** Deletes [book] with all its poems and calls [onDone] with whether that worked. */
-    fun deleteBook(book: Book, onDone: (Boolean) -> Unit) {
-        val lib = library ?: return onDone(false)
-        scope.launch {
-            val ok = withContext(Dispatchers.IO) { runCatching { lib.deleteBook(book) }.isSuccess }
-            if (ok) books = books.filter { it.documentId != book.documentId }
+            val ok = runCatching { locked { store.editBook(book.id, name, color) } }.isSuccess
             onDone(ok)
-            refreshBooks()
         }
     }
 
-    private fun hasAccess(uri: Uri): Boolean =
-        getApplication<Application>().contentResolver.persistedUriPermissions.any {
-            it.uri == uri && it.isReadPermission && it.isWritePermission
-        }
-
-    private fun releaseAccess(uri: Uri) {
-        runCatching {
-            getApplication<Application>().contentResolver.releasePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
+    /** Moves [book] to the bin and calls [onDone] with whether that worked. */
+    fun deleteBook(book: Book, onDone: (Boolean) -> Unit) {
+        scope.launch {
+            val ok = runCatching { locked { store.binBook(book.id) } }.isSuccess
+            onDone(ok)
         }
     }
+
+    // --- Editing poems ---
 
     fun updateTitle(id: String, title: String) = update(id) { it.copy(title = title) }
 
     fun updateBody(id: String, body: String) = update(id) { it.copy(body = body) }
-
-    /** Removes the poem (and its file) and returns the index of the page to show instead. */
-    fun deletePoem(id: String): Int {
-        val index = poems.indexOfFirst { it.id == id }
-        if (index < 0) return 0
-        poems.removeAt(index)
-        keepOneBlankPoemLast()
-        markUpdated()
-        scheduleSave()
-        return index.coerceAtMost(poems.lastIndex)
-    }
-
-    /**
-     * Moves the poem at page [from] to page [to]. The blank poem always stays last, so neither
-     * index may be that page.
-     */
-    fun movePoem(from: Int, to: Int) {
-        val movable = 0 until poems.lastIndex
-        if (from == to || from !in movable || to !in movable) return
-        poems.add(to, poems.removeAt(from))
-        markUpdated()
-        scheduleSave()
-    }
-
-    /** Writes any pending changes now, e.g. when the app goes to the background. */
-    fun flush() {
-        if (repository == null) return
-        saveJob?.cancel()
-        scope.launch { saveNow() }
-    }
 
     private fun update(id: String, change: (Poem) -> Poem) {
         val index = poems.indexOfFirst { it.id == id }
@@ -299,15 +154,60 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         if (updated == poems[index]) return
         poems[index] = updated
         keepOneBlankPoemLast()
-        markUpdated()
-        scheduleSave()
     }
 
-    /** Records that the open book just changed, for sorting the shelf by last updated. */
-    private fun markUpdated() {
+    /**
+     * Finishes the edit of the poem [id]: if it now differs from the version stored, saves it as a
+     * new version. A poem written in the book's blank last page is stored as a new poem.
+     */
+    fun commit(id: String) {
         val book = currentBook ?: return
-        settings.saveBookUpdated(book.documentId, System.currentTimeMillis())
+        val poem = poems.firstOrNull { it.id == id } ?: return
+        save(book, poem)
     }
+
+    /** Commits every poem with unsaved changes, e.g. when the app goes to the background. */
+    fun commitAll() {
+        val book = currentBook ?: return
+        poems.toList().forEach { save(book, it) }
+    }
+
+    private fun save(book: Book, poem: Poem) {
+        val before = stored[poem.id]
+        if (before == null && poem.isBlank) return
+        if (before == poem) return
+        stored[poem.id] = poem
+        scope.launch { runCatching { locked { store.save(book.id, poem) } } }
+    }
+
+    /** Moves the poem to the bin and returns the index of the page to show instead. */
+    fun deletePoem(id: String): Int {
+        val book = currentBook
+        val index = poems.indexOfFirst { it.id == id }
+        if (index < 0) return 0
+        poems.removeAt(index)
+        keepOneBlankPoemLast()
+        if (book != null && stored.remove(id) != null) {
+            scope.launch { runCatching { locked { store.binPoem(book.id, id) } } }
+        }
+        return index.coerceAtMost(poems.lastIndex)
+    }
+
+    /**
+     * Moves the poem at page [from] to page [to]. The blank poem always stays last, so neither
+     * index may be that page.
+     */
+    fun movePoem(from: Int, to: Int) {
+        val book = currentBook ?: return
+        val movable = 0 until poems.lastIndex
+        if (from == to || from !in movable || to !in movable) return
+        poems.add(to, poems.removeAt(from))
+        val order = poems.map { it.id }.filter { it in stored }
+        scope.launch { runCatching { locked { store.reorder(book.id, order) } } }
+    }
+
+    /** True if the poem has been written to the database, so it has a history and a notepad. */
+    fun isStored(id: String) = id in stored
 
     /**
      * Makes sure the book ends with exactly one blank poem: starting to write in it adds a fresh
@@ -320,38 +220,54 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         while (poems.size > fixed.size) poems.removeAt(poems.lastIndex)
     }
 
-    private fun scheduleSave() {
-        if (repository == null) return
-        saveJob?.cancel()
-        saveJob = scope.launch {
-            // Wait for a pause in typing so a title isn't renamed on every keystroke.
-            delay(SAVE_DEBOUNCE_MS)
-            var attempts = 0
-            while (!saveNow() && ++attempts <= MAX_SAVE_RETRIES) delay(RETRY_DELAY_MS)
+    // --- Notepad and history ---
+
+    suspend fun notes(poemId: String): String = locked { store.notes(poemId) }
+
+    /** Saves the poem's notepad. This is not an edit of the poem, so it makes no new version. */
+    fun saveNotes(poemId: String, notes: String) {
+        scope.launch { runCatching { locked { store.setNotes(poemId, notes) } } }
+    }
+
+    fun history(poemId: String): Flow<List<PoemVersion>> = store.observeHistory(poemId)
+
+    suspend fun version(poemId: String, createdAt: Long): PoemVersion? = locked { store.version(poemId, createdAt) }
+
+    // --- Bin ---
+
+    fun restorePoem(id: String) = inStore { store.restorePoem(id) }
+
+    fun deletePoemForever(id: String) = inStore { store.deletePoemForever(id) }
+
+    fun restoreBook(id: String) = inStore { store.restoreBook(id) }
+
+    fun deleteBookForever(id: String) = inStore { store.deleteBookForever(id) }
+
+    suspend fun poemTitles(bookId: String): List<String> = locked { store.poemTitles(bookId) }
+
+    private fun inStore(block: suspend () -> Unit) {
+        scope.launch { runCatching { locked { block() } } }
+    }
+
+    // --- Import ---
+
+    /** Copies the books and poems in the directory [treeUri] into the app, once, and calls [onDone] with what was imported, or null if it failed. */
+    fun importDirectory(treeUri: Uri, onDone: (ImportResult?) -> Unit) {
+        val app = getApplication<Application>()
+        scope.launch {
+            val importer = DirectoryImporter(app, settings, store, app.getString(R.string.misc_book))
+            val result = runCatching {
+                locked { withContext(Dispatchers.IO) { importer.importFrom(treeUri) } }
+            }.getOrNull()
+            onDone(result)
         }
     }
 
-    /** Returns true if the folder now matches the open book. */
-    private suspend fun saveNow(): Boolean {
-        val repo = repository ?: return true
-        val snapshot = poems.toList()
-        return storageLock.withLock {
-            // Finish what was started even if the app is going away: a half-saved poem is worse.
-            withContext(Dispatchers.IO + NonCancellable) {
-                runCatching { repo.save(snapshot) }.getOrDefault(false)
-            }
-        }
-    }
+    private suspend fun <T> locked(block: suspend () -> T): T = storeLock.withLock { block() }
 
     override fun onCleared() {
         scope.cancel()
     }
 
     private fun newId() = UUID.randomUUID().toString()
-
-    private companion object {
-        const val SAVE_DEBOUNCE_MS = 800L
-        const val RETRY_DELAY_MS = 2_000L
-        const val MAX_SAVE_RETRIES = 3
-    }
 }

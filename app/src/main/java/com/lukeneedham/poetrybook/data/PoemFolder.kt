@@ -6,13 +6,14 @@ import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document
 import java.io.IOException
 
+private const val PoemFileExtension = ".txt"
+
 /**
- * A directory inside the folder the user picked with the system folder picker, holding one `.txt`
+ * A read-only view of a directory the user picked with the system folder picker, holding one `.txt`
  * file per poem. With the default [directoryDocumentId] this is the picked folder itself; a
- * subfolder of it is a book.
+ * subfolder of it is a book. Only used to import poems once.
  *
- * Goes through the Storage Access Framework, so it works for any folder the user granted
- * (internal storage, SD card, cloud providers…) and survives the app being reinstalled.
+ * Goes through the Storage Access Framework, so it works for any folder the user granted.
  * All calls are blocking and must run off the main thread. Failures throw [IOException].
  */
 class PoemFolder(
@@ -22,7 +23,6 @@ class PoemFolder(
 ) {
     internal val appContext: Context = context.applicationContext
     private val resolver = appContext.contentResolver
-    private val directoryUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, directoryDocumentId)
 
     /** Identifies this directory in app settings, e.g. for the saved page order. */
     val key: String = "$treeUri|$directoryDocumentId"
@@ -31,7 +31,7 @@ class PoemFolder(
     data class SubFolder(val documentId: String, val name: String)
 
     /** A poem file. [name] is the file name without the `.txt` extension. */
-    data class File(val uri: Uri, val name: String)
+    data class File(val uri: Uri, val name: String, val lastModified: Long)
 
     private class Child(val documentId: String, val name: String, val isDirectory: Boolean, val lastModified: Long)
 
@@ -61,7 +61,7 @@ class PoemFolder(
         .filter { !it.isDirectory && it.name.endsWith(PoemFileExtension, ignoreCase = true) }
         .map {
             val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, it.documentId)
-            File(uri, it.name.dropLast(PoemFileExtension.length))
+            File(uri, it.name.dropLast(PoemFileExtension.length), it.lastModified)
         }
 
     /** How many poems are directly in this directory, and when the most recently changed one was. */
@@ -78,29 +78,6 @@ class PoemFolder(
         .filter { it.isDirectory && !it.name.startsWith(".") }
         .map { SubFolder(it.documentId, it.name) }
 
-    /** Creates a folder called [name] here. The provider may adjust the name, so use the result. */
-    fun createSubFolder(name: String): SubFolder = io {
-        val uri = DocumentsContract.createDocument(resolver, directoryUri, Document.MIME_TYPE_DIR, name)
-            ?: throw IOException("Can't create $name")
-        SubFolder(DocumentsContract.getDocumentId(uri), displayName(uri) ?: name)
-    }
-
-    /** Renames [subFolder]. The document id can change with the name, so use the result. */
-    fun renameSubFolder(subFolder: SubFolder, newName: String): SubFolder = io {
-        val oldUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, subFolder.documentId)
-        val uri = DocumentsContract.renameDocument(resolver, oldUri, newName)
-            ?: throw IOException("Can't rename ${subFolder.name}")
-        SubFolder(DocumentsContract.getDocumentId(uri), displayName(uri) ?: newName)
-    }
-
-    /** Deletes [subFolder] and everything in it. */
-    fun deleteSubFolder(subFolder: SubFolder) = io {
-        val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, subFolder.documentId)
-        if (!DocumentsContract.deleteDocument(resolver, uri)) {
-            throw IOException("Can't delete ${subFolder.name}")
-        }
-    }
-
     /** The poem folder for [subFolder]. */
     fun subFolder(subFolder: SubFolder): PoemFolder =
         PoemFolder(appContext, treeUri, subFolder.documentId)
@@ -109,39 +86,6 @@ class PoemFolder(
         resolver.openInputStream(file.uri)?.bufferedReader()?.use { it.readText() }
             ?: throw IOException("Can't read ${file.name}")
     }
-
-    fun write(file: File, text: String) = io {
-        // "wt" truncates, so a shorter poem doesn't leave the end of the old one behind.
-        resolver.openOutputStream(file.uri, "wt")?.use { it.write(text.toByteArray()) }
-            ?: throw IOException("Can't write ${file.name}")
-    }
-
-    /** Creates an empty file called [name]. The provider may adjust the name, so use the result. */
-    fun create(name: String): File = io {
-        val uri = DocumentsContract.createDocument(resolver, directoryUri, "text/plain", name + PoemFileExtension)
-            ?: throw IOException("Can't create $name")
-        File(uri, displayName(uri)?.removeExtension() ?: name)
-    }
-
-    fun rename(file: File, newName: String): File = io {
-        val uri = DocumentsContract.renameDocument(resolver, file.uri, newName + PoemFileExtension)
-            ?: throw IOException("Can't rename ${file.name}")
-        File(uri, displayName(uri)?.removeExtension() ?: newName)
-    }
-
-    fun delete(file: File) = io {
-        if (!DocumentsContract.deleteDocument(resolver, file.uri)) {
-            throw IOException("Can't delete ${file.name}")
-        }
-    }
-
-    private fun displayName(uri: Uri): String? =
-        resolver.query(uri, arrayOf(Document.COLUMN_DISPLAY_NAME), null, null, null)?.use {
-            if (it.moveToFirst()) it.getString(0) else null
-        }
-
-    private fun String.removeExtension() =
-        if (endsWith(PoemFileExtension, ignoreCase = true)) dropLast(PoemFileExtension.length) else this
 
     /** Providers report problems in many ways; callers only care that it failed. */
     private inline fun <T> io(block: () -> T): T = try {

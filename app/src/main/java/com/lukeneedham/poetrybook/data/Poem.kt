@@ -1,9 +1,6 @@
 package com.lukeneedham.poetrybook.data
 
-import kotlinx.serialization.Serializable
-
-/** One page of the book. Poems are plain text; line breaks in [body] are the poem's lines. */
-@Serializable
+/** One page of the book: the current title and text of a poem. Line breaks in [body] are the poem's lines. */
 data class Poem(
     val id: String,
     val title: String = "",
@@ -13,6 +10,38 @@ data class Poem(
     val isBlank: Boolean
         get() = title.isBlank() && body.isBlank()
 }
+
+/**
+ * One entry in a poem's history: the title and text the poem had from [createdAt] (epoch millis)
+ * until the next version. The notepad isn't part of a version; it belongs to the whole poem.
+ */
+data class PoemVersion(
+    val createdAt: Long,
+    val title: String,
+    val body: String,
+)
+
+/** A deleted poem waiting in the bin, as it was when it was deleted. */
+data class BinPoem(
+    val id: String,
+    val title: String,
+    val body: String,
+    val bookName: String,
+    val deletedAt: Long,
+)
+
+/** A deleted book waiting in the bin. [poemCount] counts its poems that weren't deleted on their own first. */
+data class BinBook(
+    val id: String,
+    val name: String,
+    val color: Int?,
+    val poemCount: Int,
+    val deletedAt: Long,
+)
+
+/** True if saving [title] and [body] would change a poem whose latest version is [latest]. */
+fun isNewVersion(latest: PoemVersion?, title: String, body: String): Boolean =
+    latest == null || latest.title != title || latest.body != body
 
 /**
  * [poems] with exactly one blank poem at the end: one is added if the last poem has been written

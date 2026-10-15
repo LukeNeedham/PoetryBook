@@ -46,4 +46,22 @@ class PoemTest {
         val poems = listOf(poem("a", "A"), poem("gap"), poem("b", "B"))
         assertEquals(listOf("a", "gap", "b", "new"), ids(withOneBlankLast(poems, ::fresh)))
     }
+
+    @Test
+    fun `saving the same title and text is not a new version`() {
+        val latest = PoemVersion(createdAt = 1, title = "Rose", body = "Roses are red")
+        assertFalse(isNewVersion(latest, "Rose", "Roses are red"))
+    }
+
+    @Test
+    fun `a changed title or text is a new version`() {
+        val latest = PoemVersion(createdAt = 1, title = "Rose", body = "Roses are red")
+        assertTrue(isNewVersion(latest, "Roses", "Roses are red"))
+        assertTrue(isNewVersion(latest, "Rose", "Roses are red,"))
+    }
+
+    @Test
+    fun `a poem with no versions yet always gets its first`() {
+        assertTrue(isNewVersion(null, "Rose", "Roses are red"))
+    }
 }
