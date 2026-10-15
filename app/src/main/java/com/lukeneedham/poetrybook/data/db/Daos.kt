@@ -18,7 +18,6 @@ data class BookRow(
 /** A poem with its latest version. */
 data class PoemRow(
     val id: String,
-    val position: Int,
     val title: String,
     val body: String,
 )
@@ -84,7 +83,7 @@ interface PoemDao {
     suspend fun poem(id: String): PoemEntity?
 
     @Query(
-        "SELECT p.id, p.position, v.title, v.body FROM poems p " +
+        "SELECT p.id, v.title, v.body FROM poems p " +
             "JOIN poem_versions v ON v.poemId = p.id AND $LATEST " +
             "WHERE p.bookId = :bookId AND p.deletedAt IS NULL ORDER BY p.position",
     )
@@ -108,19 +107,38 @@ interface PoemDao {
     @Query("UPDATE poems SET notes = :notes WHERE id = :id")
     suspend fun setNotes(id: String, notes: String)
 
+    /** The ids of the book's live poems, first page first. */
+    @Query("SELECT id FROM poems WHERE bookId = :bookId AND deletedAt IS NULL ORDER BY position")
+    suspend fun liveIds(bookId: String): List<String>
+
+    /** Puts a live poem on page [position]. The page must be free: see [parkPositions]. */
     @Query("UPDATE poems SET position = :position WHERE id = :id")
     suspend fun setPosition(id: String, position: Int)
 
-    @Query("UPDATE poems SET deletedAt = :at WHERE id = :id")
-    suspend fun setDeletedAt(id: String, at: Long?)
+    /** Moves the poem to the bin: it gets a deletion time and no page. */
+    @Query("UPDATE poems SET deletedAt = :at, position = NULL WHERE id = :id")
+    suspend fun bin(id: String, at: Long)
 
-    /** Makes room for a poem arriving at [from]. */
-    @Query("UPDATE poems SET position = position + 1 WHERE bookId = :bookId AND deletedAt IS NULL AND position >= :from")
-    suspend fun shiftUp(bookId: String, from: Int)
+    /** Takes the poem out of the bin, onto page [position]. */
+    @Query("UPDATE poems SET deletedAt = NULL, position = :position WHERE id = :id")
+    suspend fun restore(id: String, position: Int)
 
-    /** Closes the gap left by a poem that was at [after]. */
-    @Query("UPDATE poems SET position = position - 1 WHERE bookId = :bookId AND deletedAt IS NULL AND position > :after")
-    suspend fun shiftDown(bookId: String, after: Int)
+    // Positions are unique per book (a unique index), and SQLite checks that after every row it
+    // changes, not at the end of the statement. So adding or subtracting 1 across a range could
+    // briefly put two poems on one page and fail. Instead, rows are first parked on negative
+    // pages, which can't clash with real ones or each other, and then moved to their final page.
+
+    /** Step 1 of closing a gap: parks the live poems after page [after] on pages -(p). */
+    @Query("UPDATE poems SET position = -position WHERE bookId = :bookId AND position > :after")
+    suspend fun parkAfter(bookId: String, after: Int)
+
+    /** Step 2 of closing a gap: moves parked poems (page -(p)) to page p - 1. */
+    @Query("UPDATE poems SET position = -position - 1 WHERE bookId = :bookId AND position < 0")
+    suspend fun settleParkedDown(bookId: String)
+
+    /** Step 1 of reordering: parks all the book's live poems on pages -1, -2… */
+    @Query("UPDATE poems SET position = -position - 1 WHERE bookId = :bookId AND position >= 0")
+    suspend fun parkPositions(bookId: String)
 
     /** Removes the poem for good, with all its versions. */
     @Query("DELETE FROM poems WHERE id = :id")

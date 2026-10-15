@@ -63,9 +63,18 @@ class PoemStore(
         true
     }
 
-    /** Stores the page order: [orderedIds] are the book's stored poems, first page first. */
+    /**
+     * Stores the page order: [orderedIds] are the book's stored poems, first page first. Any live
+     * poem missing from the list keeps its relative order after the listed ones, so the pages stay
+     * a complete 0..n-1 whatever is passed in.
+     */
     suspend fun reorder(bookId: String, orderedIds: List<String>) = db.withTransaction {
-        orderedIds.forEachIndexed { index, id -> poems.setPosition(id, index) }
+        val live = poems.liveIds(bookId)
+        val liveSet = live.toSet()
+        val wanted = orderedIds.filter { it in liveSet }.distinct()
+        val order = wanted + live.filter { it !in wanted.toSet() }
+        poems.parkPositions(bookId)
+        order.forEachIndexed { index, id -> poems.setPosition(id, index) }
         books.touch(bookId, now())
     }
 
@@ -82,12 +91,14 @@ class PoemStore(
 
     // --- Bin ---
 
-    /** Moves the poem to the bin. It remembers its page. */
+    /** Moves the poem to the bin. It loses its page, and the poems after it move up one. */
     suspend fun binPoem(bookId: String, poemId: String) = db.withTransaction {
         val poem = poems.poem(poemId) ?: return@withTransaction
+        val position = poem.position ?: return@withTransaction // already in the bin
         val at = now()
-        poems.setDeletedAt(poemId, at)
-        poems.shiftDown(bookId, poem.position)
+        poems.bin(poemId, at)
+        poems.parkAfter(poem.bookId, position)
+        poems.settleParkedDown(poem.bookId)
         books.touch(bookId, at)
     }
 
@@ -111,13 +122,11 @@ class PoemStore(
     /** Wipes the book, its poems and all their history. */
     suspend fun deleteBookForever(bookId: String) = books.delete(bookId)
 
-    /** Puts the poem back in its book, on the page it came from (or the last one if the book has shrunk). */
+    /** Puts the poem back in its book, as the last page. It doesn't get its old page back. */
     suspend fun restorePoem(poemId: String) = db.withTransaction {
         val poem = poems.poem(poemId) ?: return@withTransaction
-        val position = poem.position.coerceIn(0, poems.count(poem.bookId))
-        poems.shiftUp(poem.bookId, position)
-        poems.setPosition(poemId, position)
-        poems.setDeletedAt(poemId, null)
+        if (poem.deletedAt == null) return@withTransaction // not in the bin
+        poems.restore(poemId, poems.count(poem.bookId))
         books.touch(poem.bookId, now())
     }
 

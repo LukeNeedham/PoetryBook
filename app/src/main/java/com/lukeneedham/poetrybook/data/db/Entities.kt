@@ -37,17 +37,20 @@ data class BookEntity(
  * exactly one place each fact is stored.
  *
  * - [bookId] is the book it is in (many poems to one book). Deleting a book for good deletes its poems.
- * - [position] is the page number, counting from 0, among the book's live poems. For live poems it
- *   is dense (0, 1, 2…). It is not unique-constrained, because shifting a range by one is a single
- *   UPDATE and SQLite checks uniqueness row by row. For a poem in the bin it is the page it had
- *   when binned, kept so that restore can put it back there; it is meaningless for ordering the book.
+ * - [position] is the page number, counting from 0, among the book's live poems. It is dense
+ *   (0, 1, 2… with no gaps) and unique within a book, which the unique index enforces. It is NULL
+ *   exactly when the poem is in the bin: a binned poem has no page, and a restored one goes to the
+ *   end. SQLite treats NULLs as distinct, so any number of binned poems fit under the unique index.
+ *   Moving a range of poems therefore has to avoid briefly duplicating a page: see the park/settle
+ *   queries in [PoemDao].
  * - [notes] is the poem's notepad: one per poem and shared by every version, which is why it is a
  *   column here (one-to-one) and not in the version table.
  * - [deletedAt] is null for a live poem; non-null means it is in the bin since then. A binned poem
- *   keeps its versions and notes.
+ *   keeps its versions and notes. Invariant kept by the app (SQLite cannot declare it here):
+ *   [deletedAt] is null if and only if [position] is not null.
  *
- * The index serves "the live poems of a book in page order", the app's hottest query, and also
- * the foreign key to [BookEntity] (its first column).
+ * The unique index enforces the page order, serves "the live poems of a book in page order", the
+ * app's hottest query, and covers the foreign key to [BookEntity] (its first column).
  */
 @Entity(
     tableName = "poems",
@@ -59,12 +62,12 @@ data class BookEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index(value = ["bookId", "deletedAt", "position"])],
+    indices = [Index(value = ["bookId", "position"], unique = true)],
 )
 data class PoemEntity(
     @PrimaryKey val id: String,
     val bookId: String,
-    val position: Int,
+    val position: Int?,
     val notes: String = "",
     val deletedAt: Long? = null,
 )

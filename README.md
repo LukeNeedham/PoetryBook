@@ -11,7 +11,7 @@ An Android book for your own poetry. Every page is a poem you wrote: swipe acros
 - **Stored in a Room database** (books, poems, poem versions), not in files. The schema and the reasons for it are in [docs/database.md](docs/database.md), including the rule that migrations must never be destructive
 - **History**: tapping the tick after editing saves a new *version* of the poem, but only if the title or text changed. The history drop-down lists the versions (timestamp, title, first two lines); picking one opens it on a read-only page where the text can be selected and copied
 - **Notepad**: a bottom sheet that is always a text field, for rhymes, metaphors and other ideas. It belongs to the poem as a whole, so every version shares it
-- **Bin**: deleting a book or poem moves it to the bin (Settings → Bin) instead of wiping it. From the bin you can preview an item and restore it (a poem returns to its book and page) or delete it for good, which wipes its history too. There is no "empty bin"
+- **Bin**: deleting a book or poem moves it to the bin (Settings → Bin) instead of wiping it. From the bin you can preview an item and restore it (a poem returns to the end of its book) or delete it for good, which wipes its history too. There is no "empty bin"
 - **Import** (Settings): a one-off copy of a folder of text files into the database. Every subfolder is a book and every `.txt` file in it a poem (loose files go into a book called Misc). The folder is not remembered or touched afterwards
 
 ## Code layout

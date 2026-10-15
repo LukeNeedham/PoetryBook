@@ -21,7 +21,7 @@ erDiagram
     poems {
         TEXT id PK "random UUID"
         TEXT bookId FK
-        INTEGER position "page number among live poems"
+        INTEGER position "page number, UNIQUE per book, NULL in the bin"
         TEXT notes "the notepad, shared by all versions"
         INTEGER deletedAt "NULL = live, else in the bin since"
     }
@@ -53,12 +53,23 @@ The identity of a poem, plus what belongs to the poem as a whole rather than to 
 | --- | --- | --- |
 | `id` | TEXT, PK | Random UUID. |
 | `bookId` | TEXT, NOT NULL, FK → `books.id` ON DELETE CASCADE | Many poems to one book. Cascade means wiping a book for good wipes its poems and (via the next cascade) their history, so nothing can be orphaned. |
-| `position` | INTEGER, NOT NULL | Page number from 0 among the book's live poems. Kept dense for live poems by `PoemStore`. **Not UNIQUE** with `bookId`: moving a poem shifts a range of rows with one `UPDATE position = position ± 1`, and SQLite checks a unique index row by row, so the statement could fail half way. For a binned poem it holds the page it had so restore can put it back; it plays no part in ordering then. |
+| `position` | INTEGER, NULL | Page number from 0 among the book's live poems: **dense** (0, 1, 2… with no gaps) and **unique per book**, enforced by the unique index. **NULL exactly when the poem is in the bin**: a binned poem has no page, and restoring puts it at the end of the book. Because SQLite treats NULLs as distinct, any number of binned poems fit under the unique index. |
 | `notes` | TEXT, NOT NULL, default `''` | The notepad. One per poem, shared by all its versions (so ideas can be carried between versions), hence a plain one-to-one column here, and not part of `poem_versions`. |
 | `deletedAt` | INTEGER, NULL | Soft delete, as in `books`. |
 
-Index: `(bookId, deletedAt, position)`. It answers "the live poems of this book in page order",
-the hottest query, without a sort, and its first column also covers the foreign key.
+Index: **unique** `(bookId, position)`. It makes the page order a database guarantee (two live poems
+can never share a page), answers "the live poems of this book in page order" without a sort, and its
+first column also covers the foreign key.
+
+**Invariant the app keeps** (SQLite can't declare it through Room): `deletedAt` is NULL if and only if
+`position` is not NULL.
+
+**Changing pages without clashing.** SQLite checks a unique index after every row an `UPDATE` changes,
+not at the end of the statement, so `SET position = position - 1` over a range can briefly put two
+poems on one page and fail. Instead, `PoemDao` works in two steps inside one transaction: first the
+affected rows are *parked* on negative pages (which can't clash with real pages or with each other), then
+moved to their final page. Closing the gap left by a binned poem uses `parkAfter` then
+`settleParkedDown`; reordering uses `parkPositions` then `setPosition` for each poem.
 
 ### `poem_versions`
 Append-only history. A poem's current title and text are those of its newest row.
@@ -83,7 +94,8 @@ let the two drift apart. The cost is a lookup of the newest version, which is an
 - A new version is written only if the title or body differs from the newest one (`isNewVersion`). Versions are never updated or deleted individually.
 - Binning is a soft delete (`deletedAt`), reversible; "delete forever" is a real `DELETE` and cascades.
 - Binning a book leaves its poems untouched. Binned poems of a binned book are hidden from the poem bin (the bin query requires the book to be live) and come back into view if the book is restored.
-- Binning a poem closes the gap in the live positions (`shiftDown`); restoring opens a gap at its remembered page (`shiftUp`), clamped to the end if the book has shrunk.
+- Binning a poem sets its `position` to NULL and closes the gap among the live poems (park, then settle). Restoring appends: the poem gets the next page (the live count). **A restored poem does not get its old page back**; that was a deliberate simplification, so a binned poem stores no stale page.
+- Live pages are always exactly 0..n-1 per book. `reorder` rebuilds them from the order it is given and appends any live poem missing from that list, so the pages stay complete.
 - Foreign keys are enforced (Room enables them), so all cascades are real.
 - **Migrations never destroy data** (see [Migrations: never destructive](#migrations-never-destructive)).
 
@@ -135,6 +147,9 @@ the owner. The answer is never to wipe silently; at minimum the user must be sho
 export their poems first.
 
 ## Choices considered and rejected
+- **Keeping a binned poem's old page** (in `position`, or in a second column) so restore could put it back: more state and an extra shift on restore, and the stale value broke uniqueness. Restore-to-the-end is simpler and lets the unique index hold.
+- **Gapped or fractional page keys** (10, 20, 30… or 1.5): they avoid renumbering, but a book holds tens of poems, so renumbering a few rows costs nothing, and the extra complexity only pays off with sync or huge lists.
+- **No uniqueness on `position`** (the first version of this schema): a bug in the shifting could then silently leave two poems on one page. The unique index turns that into a loud failure.
 - **Separate "deleted" tables** that rows are copied into: duplicates the schema, makes restore a copy-back that must remap relations, and would need the same for versions. A nullable `deletedAt` keeps one copy of each row and makes restore an UPDATE.
 - **A `currentVersion` pointer on `poems`**: a second source of truth that must be kept in step with the versions table.
 - **Auto-increment integer ids**: fine for a single device, but UUIDs make rows creatable anywhere and leave room for sync or backup merging later.
