@@ -97,6 +97,11 @@ fun BookScreen(
                 state = pageState,
                 pageCount = poems.size,
                 gesturesEnabled = !editing && !contentsOpen,
+                // Tapping the middle of the unstarted poem at the end starts writing in it.
+                onCenterTap = {
+                    val page = poems.getOrNull(pageState.currentPage)
+                    if (page != null && page.isBlank && !pageState.isTurning) editing = true
+                },
                 modifier = Modifier.weight(1f),
             ) { index ->
                 val poem = poems.getOrNull(index) ?: return@PageTurnBook

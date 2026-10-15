@@ -12,6 +12,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
@@ -49,6 +50,7 @@ private const val TAP_EDGE_FRACTION = 0.33f
  * through [GraphicsLayer]s so the curl can fold the live content without re-laying it out.
  *
  * @param gesturesEnabled when false the pages can't be swiped, e.g. while a page is being edited.
+ * @param onCenterTap called for a quick tap between the two edge regions, which turn the page instead.
  */
 @Composable
 fun PageTurnBook(
@@ -56,6 +58,7 @@ fun PageTurnBook(
     pageCount: Int,
     modifier: Modifier = Modifier,
     gesturesEnabled: Boolean = true,
+    onCenterTap: () -> Unit = {},
     page: @Composable (index: Int) -> Unit,
 ) {
     SideEffect { state.pageCount = pageCount }
@@ -74,6 +77,7 @@ fun PageTurnBook(
     val tapTimeout = viewConfiguration.longPressTimeoutMillis
     // Only the target page index matters to composition; the pointer position changes every
     // frame during a turn and is read only while drawing.
+    val currentOnCenterTap by rememberUpdatedState(onCenterTap)
     val targetPage by remember(state) { derivedStateOf { state.turn?.target } }
 
     Box(
@@ -109,13 +113,14 @@ fun PageTurnBook(
 
                             if (direction == null) {
                                 if (!change.pressed) {
-                                    // A quick tap on either edge turns the page, like in TurnThePage.
+                                    // A quick tap on either edge turns the page, like in TurnThePage; in the middle it's the page's own.
                                     val quick = change.uptimeMillis - down.uptimeMillis < tapTimeout
                                     if (quick && !change.isConsumed && displacement.getDistance() < touchSlop) {
                                         val edge = state.pageSize.width * TAP_EDGE_FRACTION
                                         when {
                                             down.position.x < edge -> state.turnBy(-1)
                                             down.position.x > state.pageSize.width - edge -> state.turnBy(1)
+                                            else -> currentOnCenterTap()
                                         }
                                     }
                                     return@awaitEachGesture
