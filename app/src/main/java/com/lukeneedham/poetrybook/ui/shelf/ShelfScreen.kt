@@ -1,5 +1,6 @@
 package com.lukeneedham.poetrybook.ui.shelf
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -7,7 +8,11 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import kotlinx.coroutines.flow.collectLatest
@@ -39,6 +44,7 @@ import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -91,6 +97,7 @@ private const val NewBook = ""
  *
  * @param sort how [books] are ordered, which the caller does; [onSortChange] is called when the user picks another.
  * @param onCreateBook creates a book with the given name and cover colour (ARGB); reports whether that worked.
+ * @param onDeleteBook deletes a book and all its poems; reports whether that worked.
  * @param onEditBook renames a book and gives it a cover colour (ARGB); reports whether that worked.
  */
 @Composable
@@ -101,6 +108,7 @@ fun ShelfScreen(
     onOpenBook: (Book) -> Unit,
     onCreateBook: (name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
     onEditBook: (book: Book, name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
+    onDeleteBook: (book: Book, onDone: (Boolean) -> Unit) -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -109,6 +117,13 @@ fun ShelfScreen(
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var failed by rememberSaveable { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
+    var deleting by remember { mutableStateOf<Book?>(null) }
+
+    // Going back from the editor drops what was typed.
+    BackHandler(enabled = editing != null) {
+        failed = false
+        editing = null
+    }
 
     // Bring the book being created into view; it's the last tile.
     LaunchedEffect(editing) {
@@ -158,6 +173,7 @@ fun ShelfScreen(
                         viewportHeight = { gridState.layoutInfo.viewportSize.height },
                         initialColor = coverColor(book),
                         nameEditable = !book.isLooseFiles,
+                        onDelete = if (book.isLooseFiles) null else ({ deleting = book }),
                         failed = failed,
                         onConfirm = { name, color, onDone ->
                             failed = false
@@ -212,6 +228,29 @@ fun ShelfScreen(
             }
         }
     }
+
+    deleting?.let { book ->
+        DeleteBookDialog(
+            book = book,
+            onConfirm = {
+                deleting = null
+                failed = false
+                onDeleteBook(book) { ok -> if (ok) editing = null else failed = true }
+            },
+            onDismiss = { deleting = null },
+        )
+    }
+}
+
+@Composable
+private fun DeleteBookDialog(book: Book, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.delete_book_title, book.name)) },
+        text = { Text(pluralStringResource(R.plurals.delete_book_message, book.poemCount, book.poemCount)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.delete)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable
@@ -357,6 +396,7 @@ private fun NewBookTile(onClick: () -> Unit) {
  * @param viewportHeight the height of the area the book scrolls in, which changes as the keyboard
  * opens.
  * @param nameEditable false for a book whose name can't change (Misc), which then only gets a colour.
+ * @param onDelete if not null, a bin in the corner of the book calls it.
  * @param onConfirm called with the name and colour; call its `onDone` argument when finished so
  * the buttons can be used again.
  */
@@ -367,6 +407,7 @@ private fun BookEditor(
     initialColor: Color,
     viewportHeight: () -> Int,
     nameEditable: Boolean = true,
+    onDelete: (() -> Unit)? = null,
     failed: Boolean,
     onConfirm: (name: String, color: Color, onDone: () -> Unit) -> Unit,
     onCancel: () -> Unit,
@@ -380,6 +421,8 @@ private fun BookEditor(
     val bringIntoView = remember { BringIntoViewRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val currentViewportHeight by rememberUpdatedState(viewportHeight)
+    var bookSize by remember { mutableStateOf(IntSize.Zero) }
+    val marginBelow = with(LocalDensity.current) { 10.dp.toPx() }
 
     LaunchedEffect(Unit) {
         if (nameEditable) {
@@ -387,7 +430,10 @@ private fun BookEditor(
             keyboard?.show()
         }
         // The shelf shrinks as the keyboard slides up; follow it so the whole book stays visible.
-        snapshotFlow { currentViewportHeight() }.collectLatest { bringIntoView.bringIntoView() }
+        snapshotFlow { currentViewportHeight() }.collectLatest {
+            // A little past the bottom of the book, so it doesn't sit hard against the keyboard.
+            bringIntoView.bringIntoView(Rect(0f, 0f, bookSize.width.toFloat(), bookSize.height + marginBelow))
+        }
     }
 
     val titleStyle = coverTitleStyle().copy(color = colors.ink)
@@ -403,6 +449,7 @@ private fun BookEditor(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(0.72f)
+            .onSizeChanged { bookSize = it }
             .bringIntoViewRequester(bringIntoView)
             .border(2.dp, colors.faintInk.copy(alpha = 0.5f), RoundedCornerShape(10.dp)),
     ) {
@@ -443,6 +490,16 @@ private fun BookEditor(
                     .then(CoverTitlePadding)
                     .focusRequester(focusRequester),
             )
+        }
+
+        if (onDelete != null) {
+            IconButton(onClick = onDelete, modifier = Modifier.align(Alignment.TopEnd)) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_trash),
+                    contentDescription = stringResource(R.string.delete_book),
+                    tint = colors.ink,
+                )
+            }
         }
 
         Column(
@@ -506,6 +563,7 @@ private fun ShelfPreview() {
             sort = BookSort.ALPHABETICAL,
             onSortChange = {},
             onOpenBook = {},
+            onDeleteBook = { _, _ -> },
             onCreateBook = { _, _, _ -> },
             onEditBook = { _, _, _, _ -> },
             onOpenSettings = {},

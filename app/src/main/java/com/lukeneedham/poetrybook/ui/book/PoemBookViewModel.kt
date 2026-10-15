@@ -233,6 +233,17 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /** Deletes [book] with all its poems and calls [onDone] with whether that worked. */
+    fun deleteBook(book: Book, onDone: (Boolean) -> Unit) {
+        val lib = library ?: return onDone(false)
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { runCatching { lib.deleteBook(book) }.isSuccess }
+            if (ok) books = books.filter { it.documentId != book.documentId }
+            onDone(ok)
+            refreshBooks()
+        }
+    }
+
     private fun hasAccess(uri: Uri): Boolean =
         getApplication<Application>().contentResolver.persistedUriPermissions.any {
             it.uri == uri && it.isReadPermission && it.isWritePermission

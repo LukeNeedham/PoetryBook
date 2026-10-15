@@ -75,6 +75,14 @@ class Library(
         return Book(subFolder.documentId, subFolder.name, isLooseFiles = false, poemCount = 0, color = color, updatedAt = now)
     }
 
+    /** Deletes [book] and all its poems. The Misc book is the picked folder itself and can't be deleted. */
+    fun deleteBook(book: Book) {
+        if (book.isLooseFiles) throw java.io.IOException("Misc can't be deleted")
+        val key = folderOf(book).key
+        root.deleteSubFolder(PoemFolder.SubFolder(book.documentId, book.name))
+        settings.forgetBook(book.documentId, key)
+    }
+
     /**
      * Gives [book] the cover [color] (ARGB) and, unless it is the Misc book (which is the picked
      * folder itself and keeps its name), renames it to [name]. Renaming is not an update: only

@@ -93,6 +93,14 @@ class PoemFolder(
         SubFolder(DocumentsContract.getDocumentId(uri), displayName(uri) ?: newName)
     }
 
+    /** Deletes [subFolder] and everything in it. */
+    fun deleteSubFolder(subFolder: SubFolder) = io {
+        val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, subFolder.documentId)
+        if (!DocumentsContract.deleteDocument(resolver, uri)) {
+            throw IOException("Can't delete ${subFolder.name}")
+        }
+    }
+
     /** The poem folder for [subFolder]. */
     fun subFolder(subFolder: SubFolder): PoemFolder =
         PoemFolder(appContext, treeUri, subFolder.documentId)

@@ -75,6 +75,15 @@ class AppSettings(context: Context) {
         editor.apply()
     }
 
+    /** Forgets everything remembered about a book that has been deleted. */
+    fun forgetBook(documentId: String, folderKey: String) {
+        prefs.edit()
+            .remove(orderKey(folderKey))
+            .remove(colorKey(documentId))
+            .remove(updatedKey(documentId))
+            .apply()
+    }
+
     private fun colorKey(documentId: String) = "color|$documentId"
 
     private fun updatedKey(documentId: String) = "updated|$documentId"

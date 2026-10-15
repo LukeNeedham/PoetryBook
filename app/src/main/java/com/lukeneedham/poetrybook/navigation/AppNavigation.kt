@@ -89,6 +89,7 @@ private fun AppNavDisplay(viewModel: PoemBookViewModel, start: NavKey) {
                     },
                     onCreateBook = { name, color, onDone -> viewModel.createBook(name, color) { onDone(it != null) } },
                     onEditBook = { book, name, color, onDone -> viewModel.editBook(book, name, color, onDone) },
+                    onDeleteBook = { book, onDone -> viewModel.deleteBook(book, onDone) },
                     onOpenSettings = { backStack.add(Settings) },
                 )
             }
