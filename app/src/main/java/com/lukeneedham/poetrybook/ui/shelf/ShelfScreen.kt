@@ -43,7 +43,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -427,10 +427,13 @@ private fun BookEditor(
     onCancel: () -> Unit,
 ) {
     val colors = paperColors()
-    val nameState = rememberTextFieldState(initialName)
-    var colorArgb by rememberSaveable { mutableStateOf(initialColor.toArgb()) }
-    var pickingColor by rememberSaveable { mutableStateOf(false) }
-    var busy by rememberSaveable { mutableStateOf(false) }
+    // Plain `remember`, not saveable: saved state is kept per shelf item, so a saveable editor
+    // would bring back the text of an earlier edit of the same book (and a rename that gives a
+    // book an id it once had would do the same). Every edit starts from the book as it is now.
+    val nameState = remember { TextFieldState(initialName) }
+    var colorArgb by remember { mutableStateOf(initialColor.toArgb()) }
+    var pickingColor by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val bringIntoView = remember { BringIntoViewRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
