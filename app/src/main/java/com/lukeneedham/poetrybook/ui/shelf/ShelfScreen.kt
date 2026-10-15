@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
@@ -19,21 +21,38 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -47,21 +66,34 @@ import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
+/** Stands for the book being created in [ShelfScreen]'s `editing` state; no real document id is empty. */
+private const val NewBook = ""
+
 /**
  * The bookshelf: every book in the chosen folder as a cover. Tap one to read it.
  *
- * @param onCreateBook creates a book with the given name; reports whether that worked.
+ * The last tile starts a new book: its cover becomes editable right there, name and colour.
+ *
+ * @param onCreateBook creates a book with the given name and cover colour (ARGB); reports whether that worked.
  */
 @Composable
 fun ShelfScreen(
     books: List<Book>,
     onOpenBook: (Book) -> Unit,
-    onCreateBook: (name: String, onDone: (Boolean) -> Unit) -> Unit,
+    onCreateBook: (name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = paperColors()
-    var creating by rememberSaveable { mutableStateOf(false) }
+    // The document id of the book being edited, NewBook for the one being created, or null.
+    var editing by rememberSaveable { mutableStateOf<String?>(null) }
+    var failed by rememberSaveable { mutableStateOf(false) }
+    val gridState = rememberLazyGridState()
+
+    // Bring the book being created into view; it's the last tile.
+    LaunchedEffect(editing) {
+        if (editing == NewBook) gridState.animateScrollToItem(books.size)
+    }
 
     Column(
         modifier = modifier
@@ -87,6 +119,7 @@ fun ShelfScreen(
         }
 
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Adaptive(minSize = 150.dp),
             contentPadding = PaddingValues(24.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -97,59 +130,83 @@ fun ShelfScreen(
                 BookCover(book = book, onClick = { onOpenBook(book) })
             }
             item(key = "new book") {
-                NewBookTile(onClick = { creating = true })
+                if (editing == NewBook) {
+                    BookEditor(
+                        initialName = "",
+                        initialColor = suggestedColor(books),
+                        failed = failed,
+                        onConfirm = { name, color, onDone ->
+                            failed = false
+                            onCreateBook(name, color.toArgb()) { ok ->
+                                if (ok) editing = null else failed = true
+                                onDone()
+                            }
+                        },
+                        onCancel = {
+                            failed = false
+                            editing = null
+                        },
+                    )
+                } else {
+                    NewBookTile(
+                        onClick = {
+                            failed = false
+                            editing = NewBook
+                        },
+                    )
+                }
             }
         }
     }
-
-    if (creating) {
-        NewBookDialog(
-            onCreate = onCreateBook,
-            onDismiss = { creating = false },
-        )
-    }
 }
 
-// Muted cloth colours for the covers; a book keeps its colour because it comes from its name.
-private val CoverColors = listOf(
-    Color(0xFF6B3F36),
-    Color(0xFF3F5B52),
-    Color(0xFF35506E),
-    Color(0xFF6E5A35),
-    Color(0xFF5B3F6B),
-    Color(0xFF4B4B4B),
-)
+private val CoverShape = RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp, topStart = 3.dp, bottomStart = 3.dp)
 
-private fun coverColor(name: String): Color = CoverColors[Math.floorMod(name.lowercase().hashCode(), CoverColors.size)]
+/** The name on a cover. Shown by [BookCover] and edited by [BookEditor], so the two look the same. */
+@Composable
+private fun coverTitleStyle(): TextStyle =
+    MaterialTheme.typography.titleMedium.copy(
+        fontFamily = PoemFont,
+        fontWeight = FontWeight.SemiBold,
+        color = CoverTextColor,
+        textAlign = TextAlign.Center,
+    )
+
+private val CoverTitlePadding = Modifier.padding(start = 26.dp, end = 14.dp)
+
+/** A book's cover in [color], with its spine; [content] goes on top. */
+@Composable
+private fun CoverBox(color: Color, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(0.72f)
+            .background(color, CoverShape),
+    ) {
+        // The spine.
+        Box(
+            Modifier
+                .width(14.dp)
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.22f), RoundedCornerShape(topStart = 3.dp, bottomStart = 3.dp)),
+        )
+        content()
+    }
+}
 
 @Composable
 private fun BookCover(book: Book, onClick: () -> Unit) {
     val colors = paperColors()
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.72f)
-                .background(coverColor(book.name), RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp, topStart = 3.dp, bottomStart = 3.dp))
-                .clickable(onClick = onClick),
-        ) {
-            // The spine.
-            Box(
-                Modifier
-                    .width(14.dp)
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.22f), RoundedCornerShape(topStart = 3.dp, bottomStart = 3.dp)),
-            )
+        CoverBox(color = coverColor(book), modifier = Modifier.clickable(onClick = onClick)) {
             Text(
                 text = book.name,
-                style = MaterialTheme.typography.titleMedium.copy(fontFamily = PoemFont, fontWeight = FontWeight.SemiBold),
-                color = Color(0xFFF4EBD8),
-                textAlign = TextAlign.Center,
+                style = coverTitleStyle(),
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(start = 26.dp, end = 14.dp),
+                    .then(CoverTitlePadding),
             )
         }
         Text(
@@ -184,43 +241,111 @@ private fun NewBookTile(onClick: () -> Unit) {
     }
 }
 
+/**
+ * A cover whose name is typed straight onto it, where it will be shown, with the cover colour as a
+ * circle underneath (tap it to pick another) between a cancel and a confirm button.
+ *
+ * @param onConfirm called with the name and colour; call its `onDone` argument when finished so
+ * the buttons can be used again.
+ */
 @Composable
-private fun NewBookDialog(
-    onCreate: (name: String, onDone: (Boolean) -> Unit) -> Unit,
-    onDismiss: () -> Unit,
+private fun BookEditor(
+    initialName: String,
+    initialColor: Color,
+    failed: Boolean,
+    onConfirm: (name: String, color: Color, onDone: () -> Unit) -> Unit,
+    onCancel: () -> Unit,
 ) {
-    val name = rememberTextFieldState()
-    var failed by rememberSaveable { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.new_book)) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    state = name,
-                    label = { Text(stringResource(R.string.book_name)) },
-                    isError = failed,
-                    supportingText = if (failed) {
-                        { Text(stringResource(R.string.new_book_failed)) }
-                    } else {
-                        null
-                    },
+    val colors = paperColors()
+    val nameState = rememberTextFieldState(initialName)
+    var colorArgb by rememberSaveable { mutableStateOf(initialColor.toArgb()) }
+    var pickingColor by rememberSaveable { mutableStateOf(false) }
+    var busy by rememberSaveable { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    val titleStyle = coverTitleStyle()
+    val canConfirm = nameState.text.isNotBlank() && !busy
+    fun confirm() {
+        if (!canConfirm) return
+        busy = true
+        // The keyboard's Done key can't insert a line break, but a pasted name could hold one.
+        onConfirm(nameState.text.toString().replace('\n', ' '), Color(colorArgb)) { busy = false }
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        CoverBox(color = Color(colorArgb)) {
+            BasicTextField(
+                state = nameState,
+                textStyle = titleStyle,
+                cursorBrush = SolidColor(CoverTextColor),
+                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 4),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Done,
+                ),
+                onKeyboardAction = KeyboardActionHandler { confirm() },
+                decorator = { inner ->
+                    Box(contentAlignment = Alignment.Center) {
+                        if (nameState.text.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.book_name),
+                                style = titleStyle.copy(color = CoverTextColor.copy(alpha = 0.5f)),
+                            )
+                        }
+                        inner()
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .then(CoverTitlePadding)
+                    .focusRequester(focusRequester),
+            )
+        }
+
+        Row(
+            modifier = Modifier.padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onCancel) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_close),
+                    contentDescription = stringResource(R.string.cancel),
+                    tint = colors.faintInk,
                 )
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = name.text.isNotBlank(),
-                onClick = {
-                    failed = false
-                    onCreate(name.text.toString()) { ok -> if (ok) onDismiss() else failed = true }
-                },
-            ) { Text(stringResource(R.string.create)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-        },
-    )
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(colorArgb))
+                    .border(2.dp, colors.faintInk.copy(alpha = 0.6f), CircleShape)
+                    .clickable(onClickLabel = stringResource(R.string.choose_colour)) { pickingColor = true },
+            )
+            IconButton(onClick = ::confirm, enabled = canConfirm) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_check),
+                    contentDescription = stringResource(R.string.done),
+                    tint = colors.accent.copy(alpha = if (canConfirm) 1f else 0.35f),
+                )
+            }
+        }
+        if (failed) {
+            Text(
+                text = stringResource(R.string.new_book_failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+
+    if (pickingColor) {
+        ColorPickerSheet(
+            selected = Color(colorArgb),
+            onSelect = { colorArgb = it.toArgb() },
+            onDismiss = { pickingColor = false },
+        )
+    }
 }
 
 @Preview(showBackground = true, heightDp = 640)
@@ -234,7 +359,7 @@ private fun ShelfPreview() {
                 Book("c", "Misc", true, 0),
             ),
             onOpenBook = {},
-            onCreateBook = { _, _ -> },
+            onCreateBook = { _, _, _ -> },
             onOpenSettings = {},
         )
     }

@@ -46,6 +46,8 @@ Pick or create a folder such as Documents/Poems, then allow PoetryBook to use it
     <string name="book_name">Book name</string>
     <string name="new_book_failed">Couldn\'t create that book.</string>
     <string name="create">Create</string>
+    <string name="book_colour">Cover colour</string>
+    <string name="choose_colour">Choose cover colour</string>
     <plurals name="poem_count">
         <item quantity="one">%d poem</item>
         <item quantity="other">%d poems</item>

@@ -33,18 +33,24 @@ class PoemFolder(
     /** A poem file. [name] is the file name without the `.txt` extension. */
     data class File(val uri: Uri, val name: String)
 
-    private class Child(val documentId: String, val name: String, val isDirectory: Boolean)
+    private class Child(val documentId: String, val name: String, val isDirectory: Boolean, val lastModified: Long)
 
     private fun children(): List<Child> = io {
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, directoryDocumentId)
-        val projection = arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_MIME_TYPE)
+        val projection = arrayOf(
+            Document.COLUMN_DOCUMENT_ID,
+            Document.COLUMN_DISPLAY_NAME,
+            Document.COLUMN_MIME_TYPE,
+            Document.COLUMN_LAST_MODIFIED,
+        )
         val cursor = resolver.query(childrenUri, projection, null, null, null)
             ?: throw IOException("Folder can't be listed")
         cursor.use {
             buildList {
                 while (it.moveToNext()) {
                     val name = it.getString(1) ?: continue
-                    add(Child(it.getString(0), name, it.getString(2) == Document.MIME_TYPE_DIR))
+                    val modified = if (it.isNull(3)) 0L else it.getLong(3)
+                    add(Child(it.getString(0), name, it.getString(2) == Document.MIME_TYPE_DIR, modified))
                 }
             }
         }
@@ -58,6 +64,15 @@ class PoemFolder(
             File(uri, it.name.dropLast(PoemFileExtension.length))
         }
 
+    /** How many poems are directly in this directory, and when the most recently changed one was. */
+    fun stats(): Stats {
+        val poems = children().filter { !it.isDirectory && it.name.endsWith(PoemFileExtension, ignoreCase = true) }
+        return Stats(poems.size, poems.maxOfOrNull { it.lastModified } ?: 0L)
+    }
+
+    /** See [stats]. */
+    data class Stats(val poemCount: Int, val lastModified: Long)
+
     /** The folders directly in this directory, ignoring hidden ones such as `.thumbnails`. */
     fun listSubFolders(): List<SubFolder> = children()
         .filter { it.isDirectory && !it.name.startsWith(".") }
@@ -68,6 +83,14 @@ class PoemFolder(
         val uri = DocumentsContract.createDocument(resolver, directoryUri, Document.MIME_TYPE_DIR, name)
             ?: throw IOException("Can't create $name")
         SubFolder(DocumentsContract.getDocumentId(uri), displayName(uri) ?: name)
+    }
+
+    /** Renames [subFolder]. The document id can change with the name, so use the result. */
+    fun renameSubFolder(subFolder: SubFolder, newName: String): SubFolder = io {
+        val oldUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, subFolder.documentId)
+        val uri = DocumentsContract.renameDocument(resolver, oldUri, newName)
+            ?: throw IOException("Can't rename ${subFolder.name}")
+        SubFolder(DocumentsContract.getDocumentId(uri), displayName(uri) ?: newName)
     }
 
     /** The poem folder for [subFolder]. */

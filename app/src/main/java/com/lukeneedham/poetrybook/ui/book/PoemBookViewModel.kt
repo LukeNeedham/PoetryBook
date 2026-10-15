@@ -133,7 +133,7 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun openLibrary(uri: Uri) =
-        Library(getApplication(), uri, getApplication<Application>().getString(R.string.misc_book))
+        Library(getApplication(), uri, getApplication<Application>().getString(R.string.misc_book), settings)
 
     private suspend fun listBooks(lib: Library): List<Book>? =
         withContext(Dispatchers.IO) { runCatching { lib.books() }.getOrNull() }
@@ -193,13 +193,24 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** Creates a book called [name] and calls [onDone] with it, or null if that failed. */
-    fun createBook(name: String, onDone: (Book?) -> Unit) {
+    /** Creates a book called [name] with the cover [color] (ARGB) and calls [onDone] with it, or null if that failed. */
+    fun createBook(name: String, color: Int, onDone: (Book?) -> Unit) {
         val lib = library ?: return onDone(null)
         scope.launch {
-            val created = withContext(Dispatchers.IO) { runCatching { lib.createBook(name) }.getOrNull() }
+            val created = withContext(Dispatchers.IO) { runCatching { lib.createBook(name, color) }.getOrNull() }
             if (created != null) refreshBooks()
             onDone(created)
+        }
+    }
+
+    /** Renames [book] and gives it the cover [color] (ARGB), and calls [onDone] with whether that worked. */
+    fun editBook(book: Book, name: String, color: Int, onDone: (Boolean) -> Unit) {
+        val lib = library ?: return onDone(false)
+        scope.launch {
+            val edited = withContext(Dispatchers.IO) { runCatching { lib.editBook(book, name, color) }.getOrNull() }
+            // Even a failed rename may have changed what the folder is called; look again.
+            refreshBooks()
+            onDone(edited != null)
         }
     }
 
