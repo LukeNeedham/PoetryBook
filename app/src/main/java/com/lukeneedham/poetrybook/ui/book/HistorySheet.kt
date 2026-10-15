@@ -1,10 +1,16 @@
 package com.lukeneedham.poetrybook.ui.book
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -21,27 +27,35 @@ import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import kotlinx.coroutines.flow.Flow
 
 /**
- * The poem's history as a drop-down: every saved version, newest first, each with when it was
+ * The poem's history in a bottom sheet: every saved version, newest first, each with when it was
  * saved, its title and the first two lines of its text. Picking one calls [onSelect].
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryMenu(
-    expanded: Boolean,
+fun HistorySheet(
     versions: Flow<List<PoemVersion>>,
     onSelect: (PoemVersion) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        modifier = Modifier.widthIn(min = 260.dp, max = 340.dp),
-    ) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
         val list by versions.collectAsState(initial = emptyList())
-        list.forEachIndexed { index, version ->
-            DropdownMenuItem(
-                onClick = { onSelect(version) },
-                text = { VersionSummary(version, current = index == 0) },
-            )
+        Text(
+            text = stringResource(R.string.history),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+        )
+        LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding()) {
+            itemsIndexed(list, key = { _, version -> version.createdAt }) { index, version ->
+                if (index > 0) HorizontalDivider()
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(version) }
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                ) {
+                    VersionSummary(version, current = index == 0)
+                }
+            }
         }
     }
 }

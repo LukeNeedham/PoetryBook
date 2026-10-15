@@ -99,19 +99,6 @@ fun BookScreen(
                         notepadOpen = true
                     }
                 },
-                historyMenu = {
-                    if (currentPoem != null) {
-                        HistoryMenu(
-                            expanded = historyOpen,
-                            versions = remember(currentPoem.id) { viewModel.history(currentPoem.id) },
-                            onSelect = { version ->
-                                historyOpen = false
-                                onOpenVersion(currentPoem.id, version.createdAt)
-                            },
-                            onDismiss = { historyOpen = false },
-                        )
-                    }
-                },
                 onOpenShelf = {
                     stopEditing()
                     onOpenShelf()
@@ -166,6 +153,18 @@ fun BookScreen(
                 if (shownIndex >= 0 && shownIndex != pageState.currentPage) pageState.snapTo(shownIndex)
             },
             onDismiss = { contentsOpen = false },
+        )
+    }
+
+    val historyPoem = poems.getOrNull(pageState.currentPage)
+    if (historyOpen && historyPoem != null) {
+        HistorySheet(
+            versions = remember(historyPoem.id) { viewModel.history(historyPoem.id) },
+            onSelect = { version ->
+                historyOpen = false
+                onOpenVersion(historyPoem.id, version.createdAt)
+            },
+            onDismiss = { historyOpen = false },
         )
     }
 

@@ -334,7 +334,6 @@ private fun CoverBox(color: Color, modifier: Modifier = Modifier, content: @Comp
 
 @Composable
 private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
-    val colors = paperColors()
     val haptics = LocalHapticFeedback.current
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         CoverBox(
@@ -356,13 +355,16 @@ private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
                     .align(Alignment.Center)
                     .then(CoverTitlePadding),
             )
+            Text(
+                text = pluralStringResource(R.plurals.poem_count, book.poemCount, book.poemCount),
+                style = MaterialTheme.typography.bodySmall,
+                color = CoverTextColor.copy(alpha = 0.75f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .then(CoverTitlePadding)
+                    .padding(bottom = 12.dp),
+            )
         }
-        Text(
-            text = pluralStringResource(R.plurals.poem_count, book.poemCount, book.poemCount),
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.faintInk,
-            modifier = Modifier.padding(top = 8.dp),
-        )
     }
 }
 

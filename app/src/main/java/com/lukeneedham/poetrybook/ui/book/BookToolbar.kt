@@ -25,7 +25,6 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
  * The history and notepad only work for a poem that has been saved, so they are greyed out for the
  * blank page at the end.
  *
- * @param historyMenu the drop-down of earlier versions, placed under the history button.
  *
  * It's a band of its own above the pages, with its own paper, so it never turns with them.
  * Whoever places it deals with the status bar inset.
@@ -37,7 +36,6 @@ internal fun BookToolbar(
     hasPoem: Boolean,
     onOpenHistory: () -> Unit,
     onOpenNotepad: () -> Unit,
-    historyMenu: @Composable () -> Unit,
     onOpenShelf: () -> Unit,
     onOpenContents: () -> Unit,
     onDelete: () -> Unit,
@@ -68,15 +66,12 @@ internal fun BookToolbar(
                 )
             }
             Box(Modifier.weight(1f))
-            Box {
-                IconButton(onClick = onOpenHistory, enabled = hasPoem) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_history),
-                        contentDescription = stringResource(R.string.history),
-                        tint = colors.accent.copy(alpha = if (hasPoem) 1f else 0.35f),
-                    )
-                }
-                historyMenu()
+            IconButton(onClick = onOpenHistory, enabled = hasPoem) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_history),
+                    contentDescription = stringResource(R.string.history),
+                    tint = colors.accent.copy(alpha = if (hasPoem) 1f else 0.35f),
+                )
             }
             IconButton(onClick = onOpenNotepad, enabled = hasPoem) {
                 Icon(
