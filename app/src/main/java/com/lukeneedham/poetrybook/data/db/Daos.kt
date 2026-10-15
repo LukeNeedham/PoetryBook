@@ -27,6 +27,7 @@ data class SearchRow(
     val id: String,
     val bookId: String,
     val bookName: String,
+    val bookColor: Int?,
     val title: String,
     val body: String,
 )
@@ -130,7 +131,7 @@ interface PoemDao {
 
     /** Every live poem of every book on the shelf, with its latest version. */
     @Query(
-        "SELECT p.id, p.bookId, b.name AS bookName, v.title, v.body FROM poems p " +
+        "SELECT p.id, p.bookId, b.name AS bookName, b.color AS bookColor, v.title, v.body FROM poems p " +
             "JOIN poem_versions v ON v.poemId = p.id AND $LATEST " +
             "JOIN books b ON b.id = p.bookId " +
             "WHERE p.deletedAt IS NULL AND b.deletedAt IS NULL",

@@ -7,6 +7,7 @@ data class SearchPoem(
     val bookName: String,
     val title: String,
     val body: String,
+    val bookColor: Int? = null,
 )
 
 /**

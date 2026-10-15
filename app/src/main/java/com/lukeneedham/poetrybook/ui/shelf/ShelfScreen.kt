@@ -78,6 +78,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
@@ -337,6 +338,36 @@ private fun CoverBox(color: Color, modifier: Modifier = Modifier, content: @Comp
                 .background(Color.Black.copy(alpha = 0.22f), RoundedCornerShape(topStart = 3.dp, bottomStart = 3.dp)),
         )
         content()
+    }
+}
+
+/**
+ * A tiny version of a book's cover on the shelf, same colour and spine, with its name centred
+ * in very small type. For rows that say which book something is in.
+ */
+@Composable
+internal fun MiniBook(name: String, color: Int?, modifier: Modifier = Modifier) {
+    val cover = coverColor(Book(id = "", name = name, poemCount = 0, color = color))
+    Box(
+        modifier = modifier
+            .size(width = 36.dp, height = 50.dp)
+            .background(cover, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp, topStart = 1.dp, bottomStart = 1.dp)),
+    ) {
+        Box(
+            Modifier
+                .width(5.dp)
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.22f), RoundedCornerShape(topStart = 1.dp, bottomStart = 1.dp)),
+        )
+        Text(
+            text = name,
+            style = coverTitleStyle().copy(fontSize = 7.sp, lineHeight = 8.sp),
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(start = 9.dp, end = 3.dp),
+        )
     }
 }
 

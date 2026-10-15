@@ -45,6 +45,7 @@ import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.searchPoems
 import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
+import com.lukeneedham.poetrybook.ui.shelf.MiniBook
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
@@ -130,11 +131,12 @@ fun SearchScreen(
         }
         LazyColumn(Modifier.fillMaxSize()) {
             items(results.orEmpty(), key = { it.id }) { poem ->
-                Column(
+                Row(
                     Modifier
                         .fillMaxWidth()
                         .clickable { onOpenPoem(poem) }
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                        .padding(horizontal = 24.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = poem.title.ifBlank { stringResource(R.string.untitled) },
@@ -143,12 +145,9 @@ fun SearchScreen(
                             fontStyle = if (poem.title.isBlank()) FontStyle.Italic else FontStyle.Normal,
                         ),
                         color = if (poem.title.isBlank()) colors.faintInk else colors.ink,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
                     )
-                    Text(
-                        text = poem.bookName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.faintInk,
-                    )
+                    MiniBook(name = poem.bookName, color = poem.bookColor)
                 }
             }
         }

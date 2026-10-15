@@ -99,7 +99,7 @@ class PoemStore(
 
     /** Every live poem on the shelf, for searching. */
     suspend fun searchablePoems(): List<SearchPoem> =
-        poems.searchable().map { SearchPoem(it.id, it.bookId, it.bookName, it.title, it.body) }
+        poems.searchable().map { SearchPoem(it.id, it.bookId, it.bookName, it.title, it.body, it.bookColor) }
 
     suspend fun notes(poemId: String): String = poems.notes(poemId).orEmpty()
 
