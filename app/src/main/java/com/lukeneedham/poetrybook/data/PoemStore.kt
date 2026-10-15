@@ -13,6 +13,9 @@ import java.util.UUID
 /** A poem read from a directory, on its way into the database. */
 data class ImportedPoem(val title: String, val body: String, val modifiedAt: Long)
 
+/** A book read from a directory, on its way into the database. [updatedAt] 0 means unknown. */
+data class ImportedBook(val name: String, val color: Int?, val poems: List<ImportedPoem>, val updatedAt: Long)
+
 /**
  * Everything the app does with books, poems, their history and the bin. A poem's current title
  * and text are its latest version. Each call is one transaction.
@@ -150,6 +153,11 @@ class PoemStore(
             }
             book.id
         }
+
+    /** Adds all these books in one transaction: either every one of them is imported, or none is. */
+    suspend fun importBooks(imported: List<ImportedBook>): List<String> = db.withTransaction {
+        imported.map { importBook(it.name, it.color, it.poems, it.updatedAt) }
+    }
 
     private fun BookRow.toBook() = Book(id, name, poemCount, color, updatedAt)
 

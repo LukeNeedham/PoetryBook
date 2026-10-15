@@ -25,34 +25,32 @@ class DirectoryImporter(
         val root = PoemFolder(context, treeUri)
         val subFolders = root.listSubFolders().sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 
-        var books = 0
-        var poems = 0
-        for (subFolder in subFolders) {
+        // Everything is read first and written in one transaction, so a folder that can't be read
+        // part way through leaves nothing half imported.
+        val books = subFolders.map { subFolder ->
             val folder = root.subFolder(subFolder)
-            val imported = readPoems(folder)
-            store.importBook(
+            val poems = readPoems(folder)
+            ImportedBook(
                 name = subFolder.name,
                 color = settings.legacyBookColor(subFolder.documentId),
-                imported = imported,
-                updatedAt = maxOf(imported.maxOfOrNull { it.modifiedAt } ?: 0L, settings.legacyBookUpdated(subFolder.documentId)),
+                poems = poems,
+                updatedAt = maxOf(poems.maxOfOrNull { it.modifiedAt } ?: 0L, settings.legacyBookUpdated(subFolder.documentId)),
             )
-            books++
-            poems += imported.size
-        }
+        }.toMutableList()
 
         val loose = readPoems(root)
         if (loose.isNotEmpty()) {
             val taken = subFolders.any { it.name.equals(miscName, ignoreCase = true) }
-            store.importBook(
+            books += ImportedBook(
                 name = if (taken) "$miscName (loose)" else miscName,
                 color = settings.legacyBookColor(root.directoryDocumentId),
-                imported = loose,
+                poems = loose,
                 updatedAt = maxOf(loose.maxOf { it.modifiedAt }, settings.legacyBookUpdated(root.directoryDocumentId)),
             )
-            books++
-            poems += loose.size
         }
-        return ImportResult(books, poems)
+
+        store.importBooks(books)
+        return ImportResult(books = books.size, poems = books.sumOf { it.poems.size })
     }
 
     /** The poems in [folder] in the order the old app showed them: saved page order, then by name. */

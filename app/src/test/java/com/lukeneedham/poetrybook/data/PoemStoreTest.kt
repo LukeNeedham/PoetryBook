@@ -1,68 +1,20 @@
 package com.lukeneedham.poetrybook.data
 
-import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
 import com.lukeneedham.poetrybook.data.db.PoemEntity
-import com.lukeneedham.poetrybook.data.db.PoetryDatabase
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
-import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import java.util.UUID
 
 /**
  * Runs [PoemStore] against a real, in-memory SQLite database (Room on Robolectric), so the SQL, the
  * foreign keys and the unique page index are exercised for real. See docs/database.md.
  */
-@RunWith(RobolectricTestRunner::class)
-class PoemStoreTest {
-    private lateinit var db: PoetryDatabase
-    private lateinit var store: PoemStore
-
-    /** The store's clock; tests move it by hand so timestamps are predictable. */
-    private var clock = 1_000L
-
-    @Before
-    fun setUp() {
-        db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), PoetryDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
-        store = PoemStore(db) { clock }
-    }
-
-    @After
-    fun tearDown() {
-        db.close()
-    }
-
-    private fun test(block: suspend () -> Unit) = runBlocking { block() }
-
-    private suspend fun newBook(name: String = "Book") = store.createBook(name, color = 0).id
-
-    /** Saves a new poem at the end of the book and moves the clock on. */
-    private suspend fun write(bookId: String, title: String, body: String = "text"): Poem {
-        val poem = Poem(UUID.randomUUID().toString(), title, body)
-        store.save(bookId, poem)
-        clock += 1_000
-        return poem
-    }
-
-    private suspend fun titles(bookId: String) = store.poems(bookId).map { it.title }
-
-    /** The page number of each live poem, in page order: a healthy book gives 0, 1, 2… */
-    private suspend fun pages(bookId: String): List<Int> =
-        db.poemDao().liveIds(bookId).map { id -> db.poemDao().poem(id)!!.position!! }
-
-    private fun range(n: Int) = (0 until n).toList()
+class PoemStoreTest : DatabaseTestBase() {
 
     // --- Versions ---
 
