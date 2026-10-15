@@ -83,7 +83,7 @@ fun HistoryScreen(
 ) {
     val colors = paperColors()
     val versionsFlow = remember(poemId) { viewModel.history(poemId) }
-    val versions by versionsFlow.collectAsState<List<PoemVersion>?>(initial = null)
+    val versions by versionsFlow.collectAsState<List<PoemVersion>, List<PoemVersion>?>(initial = null)
     val loaded = versions
     val startIndex = loaded?.indexOfFirst { it.createdAt == createdAt }
 
