@@ -93,3 +93,21 @@ class Library(
         return edited.copy(color = color)
     }
 }
+
+/** How the bookshelf orders its books. */
+enum class BookSort {
+    /** By name, with Misc last. */
+    ALPHABETICAL,
+
+    /** The book with the most recently created or changed poems first. */
+    LAST_UPDATED,
+}
+
+/** These books in the order [sort] asks for. */
+fun List<Book>.sortedFor(sort: BookSort): List<Book> {
+    val byName = compareBy<Book>({ it.name.lowercase() }, { it.name })
+    return when (sort) {
+        BookSort.ALPHABETICAL -> sortedWith(compareBy<Book> { it.isLooseFiles }.then(byName))
+        BookSort.LAST_UPDATED -> sortedWith(compareByDescending<Book> { it.updatedAt }.then(byName))
+    }
+}

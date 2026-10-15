@@ -11,9 +11,11 @@ import androidx.lifecycle.AndroidViewModel
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.AppSettings
 import com.lukeneedham.poetrybook.data.Book
+import com.lukeneedham.poetrybook.data.BookSort
 import com.lukeneedham.poetrybook.data.Library
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.data.PoemRepository
+import com.lukeneedham.poetrybook.data.sortedFor
 import com.lukeneedham.poetrybook.data.withOneBlankLast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +66,14 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     /** Every book in the chosen folder, for the bookshelf. */
     var books: List<Book> by mutableStateOf(emptyList())
         private set
+
+    /** How the bookshelf is ordered. */
+    var bookSort by mutableStateOf(settings.bookSort)
+        private set
+
+    /** [books] in the order the bookshelf shows them. */
+    val shelfBooks: List<Book>
+        get() = books.sortedFor(bookSort)
 
     /** The book being read, or null while on the bookshelf. */
     var currentBook: Book? by mutableStateOf(null)
@@ -159,6 +169,11 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun sortBooks(sort: BookSort) {
+        bookSort = sort
+        settings.bookSort = sort
+    }
+
     /** Opens [book] and calls [onDone] with whether it could be read. */
     fun openBook(book: Book, onDone: (Boolean) -> Unit) {
         val lib = library ?: return onDone(false)
@@ -238,6 +253,7 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         if (index < 0) return 0
         poems.removeAt(index)
         keepOneBlankPoemLast()
+        markUpdated()
         scheduleSave()
         return index.coerceAtMost(poems.lastIndex)
     }
@@ -256,7 +272,14 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         if (updated == poems[index]) return
         poems[index] = updated
         keepOneBlankPoemLast()
+        markUpdated()
         scheduleSave()
+    }
+
+    /** Records that the open book just changed, for sorting the shelf by last updated. */
+    private fun markUpdated() {
+        val book = currentBook ?: return
+        settings.saveBookUpdated(book.documentId, System.currentTimeMillis())
     }
 
     /**

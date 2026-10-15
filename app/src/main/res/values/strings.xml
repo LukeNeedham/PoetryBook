@@ -46,6 +46,9 @@ Pick or create a folder such as Documents/Poems, then allow PoetryBook to use it
     <string name="book_name">Book name</string>
     <string name="new_book_failed">Couldn\'t save that book.</string>
     <string name="edit_book">Edit book</string>
+    <string name="sort_books">Sort books</string>
+    <string name="sort_alphabetical">Alphabetical</string>
+    <string name="sort_last_updated">Last updated</string>
     <string name="create">Create</string>
     <string name="book_colour">Cover colour</string>
     <string name="choose_colour">Choose cover colour</string>

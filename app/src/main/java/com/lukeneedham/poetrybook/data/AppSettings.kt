@@ -35,6 +35,15 @@ class AppSettings(context: Context) {
 
     private fun orderKey(folderKey: String) = "order|$folderKey"
 
+    /** How the bookshelf is sorted. */
+    var bookSort: BookSort
+        get() = prefs.getString(KEY_SORT, null)
+            ?.let { saved -> BookSort.entries.firstOrNull { it.name == saved } }
+            ?: BookSort.ALPHABETICAL
+        set(value) {
+            prefs.edit().putString(KEY_SORT, value.name).apply()
+        }
+
     /** The cover colour (ARGB) the user gave the book with [documentId], or null if it never got one. */
     fun bookColor(documentId: String): Int? =
         if (prefs.contains(colorKey(documentId))) prefs.getInt(colorKey(documentId), 0) else null
@@ -72,5 +81,6 @@ class AppSettings(context: Context) {
 
     private companion object {
         const val KEY_FOLDER = "folder"
+        const val KEY_SORT = "bookSort"
     }
 }

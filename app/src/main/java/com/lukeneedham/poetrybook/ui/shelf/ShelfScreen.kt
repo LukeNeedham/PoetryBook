@@ -29,6 +29,8 @@ import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +64,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
+import com.lukeneedham.poetrybook.data.BookSort
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
@@ -75,12 +78,15 @@ private const val NewBook = ""
  * The last tile starts a new book: its cover becomes editable right there, name and colour. The
  * pencil on a cover does the same for an existing book, which stays where it is.
  *
+ * @param sort how [books] are ordered, which the caller does; [onSortChange] is called when the user picks another.
  * @param onCreateBook creates a book with the given name and cover colour (ARGB); reports whether that worked.
  * @param onEditBook renames a book and gives it a cover colour (ARGB); reports whether that worked.
  */
 @Composable
 fun ShelfScreen(
     books: List<Book>,
+    sort: BookSort,
+    onSortChange: (BookSort) -> Unit,
     onOpenBook: (Book) -> Unit,
     onCreateBook: (name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
     onEditBook: (book: Book, name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
@@ -116,6 +122,7 @@ fun ShelfScreen(
                 color = colors.ink,
                 modifier = Modifier.weight(1f),
             )
+            SortMenu(sort = sort, onSortChange = onSortChange)
             TextButton(onClick = onOpenSettings) {
                 Text(stringResource(R.string.settings), color = colors.accent)
             }
@@ -185,6 +192,47 @@ fun ShelfScreen(
                         },
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SortMenu(sort: BookSort, onSortChange: (BookSort) -> Unit) {
+    val colors = paperColors()
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(
+                painter = painterResource(R.drawable.ic_sort),
+                contentDescription = stringResource(R.string.sort_books),
+                tint = colors.accent,
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            BookSort.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = stringResource(
+                                when (option) {
+                                    BookSort.ALPHABETICAL -> R.string.sort_alphabetical
+                                    BookSort.LAST_UPDATED -> R.string.sort_last_updated
+                                },
+                            ),
+                            fontWeight = if (option == sort) FontWeight.Bold else FontWeight.Normal,
+                        )
+                    },
+                    trailingIcon = {
+                        if (option == sort) {
+                            Icon(painter = painterResource(R.drawable.ic_check), contentDescription = null)
+                        }
+                    },
+                    onClick = {
+                        open = false
+                        onSortChange(option)
+                    },
+                )
             }
         }
     }
@@ -408,6 +456,8 @@ private fun ShelfPreview() {
                 Book("b", "Winter", false, 1),
                 Book("c", "Misc", true, 0),
             ),
+            sort = BookSort.ALPHABETICAL,
+            onSortChange = {},
             onOpenBook = {},
             onCreateBook = { _, _, _ -> },
             onEditBook = { _, _, _, _ -> },
