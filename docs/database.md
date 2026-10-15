@@ -85,11 +85,48 @@ let the two drift apart. The cost is a lookup of the newest version, which is an
 - Binning a book leaves its poems untouched. Binned poems of a binned book are hidden from the poem bin (the bin query requires the book to be live) and come back into view if the book is restored.
 - Binning a poem closes the gap in the live positions (`shiftDown`); restoring opens a gap at its remembered page (`shiftUp`), clamped to the end if the book has shrunk.
 - Foreign keys are enforced (Room enables them), so all cascades are real.
+- **Migrations never destroy data** (see [Migrations: never destructive](#migrations-never-destructive)).
 
-## Migrations
-Version 1 is the first schema. There is deliberately no `fallbackToDestructiveMigration`: a schema
-change needs a real migration so users never lose poems. The schema is exported to `app/schemas/`
-by the build; commit it so migrations can be tested against it.
+## Migrations: never destructive
+
+> **Rule: a schema change must never delete, reset or recreate user data. Destructive migrations are forbidden.**
+
+This database holds the only copy of someone's poems and every earlier version of them. The version
+history exists so that nobody is afraid of losing work; a migration that wipes it would defeat the
+whole point of the app. So:
+
+- **Never** call `fallbackToDestructiveMigration()`, `fallbackToDestructiveMigrationOnDowngrade()`,
+  `fallbackToDestructiveMigrationFrom(...)` or any variant, in any build (debug included, so the
+  habit never reaches release).
+- **Never** write a migration that drops a table or column holding user data without first copying
+  that data somewhere it is kept, and never one that deletes rows.
+- **Never** bump `version` without adding a `Migration` (or an `@AutoMigration` that Room has
+  verified) from the previous version, written and tested in the same change.
+- **Never** lower the version or ship a build that opens a newer database than it understands
+  without a plan; Room will refuse to open it, and that refusal must not be "fixed" by wiping.
+- **Never** "fix" a failed or crashing migration by clearing app data or deleting the database
+  file. Fix the migration.
+- Destructive-looking SQL such as `DROP TABLE`, `DELETE FROM` and `ALTER TABLE ... DROP COLUMN` is
+  allowed in a migration only as part of the usual SQLite table rebuild (create new table, copy
+  every row across, drop old, rename), and the test must prove the rows survived.
+
+What to do instead:
+
+1. Change the entities and raise `version` by one.
+2. Write the `Migration(from, to)` (or an auto-migration for simple additions) and register it in
+   `PoetryDatabase` with `addMigrations(...)`.
+3. Keep the exported schema JSON for **every** version in `app/schemas/` and never edit or delete an
+   old one. Room writes the new one on build; commit it.
+4. Test the migration with `MigrationTestHelper` against the old schema JSON: create the old
+   database, insert rows, migrate, and assert that every row and relation is still there.
+
+Version 1 is the first schema. As long as there is no released data, nothing needs migrating, but
+the rule applies from the first release on, and adding the fallback "just while developing" is how
+it ends up shipped.
+
+If a change truly cannot be migrated without losing data (it should be very rare), stop and ask
+the owner. The answer is never to wipe silently; at minimum the user must be shown what will be lost and
+export their poems first.
 
 ## Choices considered and rejected
 - **Separate "deleted" tables** that rows are copied into: duplicates the schema, makes restore a copy-back that must remap relations, and would need the same for versions. A nullable `deletedAt` keeps one copy of each row and makes restore an UPDATE.

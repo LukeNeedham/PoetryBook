@@ -9,9 +9,14 @@ import androidx.room.RoomDatabase
  * The app's database: books, the poems in them, and every saved version of each poem.
  * See docs/database.md for the schema and the reasons behind it.
  *
- * Room turns foreign key enforcement on, which the cascading deletes rely on. There is no
- * destructive-migration fallback on purpose: a schema change must come with a real migration, or
- * the user's poems would be wiped. The schema is exported to `app/schemas/` so migrations can be tested.
+ * Room turns foreign key enforcement on, which the cascading deletes rely on.
+ *
+ * **Migrations must never be destructive.** This database is the only copy of the user's poems and
+ * their whole history. Never add `fallbackToDestructiveMigration()` (or any variant of it), never
+ * bump [Database.version] without a tested `Migration`, and never "fix" a migration problem by
+ * deleting the database or clearing data. The rules and the procedure are in
+ * docs/database.md under "Migrations: never destructive". The schema of every version is exported
+ * to `app/schemas/`; keep them all, so migrations can be tested.
  */
 @Database(
     entities = [BookEntity::class, PoemEntity::class, PoemVersionEntity::class],
