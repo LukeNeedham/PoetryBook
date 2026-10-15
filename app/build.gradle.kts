@@ -18,6 +18,18 @@ android {
         targetSdk = 37
     }
 
+    // Debug builds are signed with a key kept in the repo (app/debug.keystore). Without it every
+    // machine, CI runs included, signs with its own random key and Android refuses to install one
+    // build over another ("conflicting package"). This key is public and only ever signs debug builds.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -52,4 +64,6 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.kotlinx.serialization.core)
+
+    testImplementation(libs.junit)
 }

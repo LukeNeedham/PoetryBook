@@ -10,4 +10,6 @@
 .cxx/
 *.jks
 *.keystore
+# The debug key is deliberately shared, so every debug build is signed the same and can update the last.
+!/app/debug.keystore
 .kotlin/

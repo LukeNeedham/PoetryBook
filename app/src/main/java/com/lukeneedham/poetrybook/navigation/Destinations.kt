@@ -5,4 +5,15 @@ import kotlinx.serialization.Serializable
 
 /** Navigation 3 back stack keys. Add one per screen. */
 @Serializable
-data object Home : NavKey
+data object Onboarding : NavKey
+
+/** The bookshelf, the app's home. */
+@Serializable
+data object Shelf : NavKey
+
+/** The book being read; which one is held by the view model. */
+@Serializable
+data object Book : NavKey
+
+@Serializable
+data object Settings : NavKey

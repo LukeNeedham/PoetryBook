@@ -1,3 +1,6 @@
 <resources>
     <color name="ic_launcher_background">#3F51B5</color>
+    <!-- The page colour, as in ui/theme/Paper.kt. Also the window background, so nothing white shows
+         through screen transitions or while the app starts. -->
+    <color name="paper">#FFFBF6EA</color>
 </resources>
