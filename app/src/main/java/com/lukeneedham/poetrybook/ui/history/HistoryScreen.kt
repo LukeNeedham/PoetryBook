@@ -14,12 +14,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import com.lukeneedham.poetrybook.data.Poem
+import com.lukeneedham.poetrybook.data.differingRanges
+import com.lukeneedham.poetrybook.ui.book.NotepadSheet
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +71,11 @@ fun HistoryScreen(
     val state by produceState<VersionState>(VersionState.Loading, poemId, createdAt) {
         value = viewModel.version(poemId, createdAt)?.let(VersionState::Found) ?: VersionState.Missing
     }
+    // The notes belong to the poem, so they are the same here as beside any other version.
+    var notepadOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(poemId) { viewModel.loadNotes(poemId) }
+    val notes = viewModel.loadedNotes(poemId)
+    val currentPoem = viewModel.poems.firstOrNull { it.id == poemId }
 
     Column(
         modifier = modifier
@@ -81,6 +97,13 @@ fun HistoryScreen(
                 color = colors.ink,
                 modifier = Modifier.align(Alignment.Center),
             )
+            IconButton(onClick = { notepadOpen = true }, modifier = Modifier.align(Alignment.CenterEnd)) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_notepad),
+                    contentDescription = stringResource(R.string.notepad),
+                    tint = colors.accent,
+                )
+            }
         }
         HorizontalDivider(color = colors.faintInk.copy(alpha = 0.25f))
 
@@ -92,13 +115,22 @@ fun HistoryScreen(
                 color = colors.faintInk,
                 modifier = Modifier.padding(24.dp),
             )
-            is VersionState.Found -> VersionPage(current.version)
+            is VersionState.Found -> VersionPage(current.version, compareTo = currentPoem)
         }
+    }
+
+    if (notepadOpen && notes != null) {
+        NotepadSheet(
+            viewModel = viewModel,
+            poemId = poemId,
+            notes = notes,
+            onDismiss = { notepadOpen = false },
+        )
     }
 }
 
 @Composable
-private fun VersionPage(version: PoemVersion) {
+private fun VersionPage(version: PoemVersion, compareTo: Poem?) {
     val colors = paperColors()
     val titleStyle = TextStyle(
         fontFamily = PoemFont,
@@ -109,6 +141,21 @@ private fun VersionPage(version: PoemVersion) {
         color = colors.ink,
     )
     val bodyStyle = TextStyle(fontFamily = PoemFont, fontSize = 19.sp, lineHeight = 30.sp, color = colors.ink)
+
+    // What this version has that the current poem doesn't. Unknown if the current poem isn't at hand.
+    val titleDiff = remember(version, compareTo) { compareTo?.let { differingRanges(version.title, it.title) }.orEmpty() }
+    val bodyDiff = remember(version, compareTo) { compareTo?.let { differingRanges(version.body, it.body) }.orEmpty() }
+    val highlight = SpanStyle(background = colors.accent.copy(alpha = 0.28f))
+    fun highlighted(text: String, ranges: List<IntRange>) = buildAnnotatedString {
+        append(text)
+        ranges.forEach { addStyle(highlight, it.first, it.last + 1) }
+    }
+    val comparison = when {
+        compareTo == null -> null
+        titleDiff.isEmpty() && bodyDiff.isEmpty() && version.title == compareTo.title && version.body == compareTo.body ->
+            R.string.history_same_as_current
+        else -> R.string.history_differences
+    }
 
     SelectionContainer(Modifier.fillMaxSize()) {
         Column(
@@ -123,8 +170,20 @@ private fun VersionPage(version: PoemVersion) {
                 color = colors.faintInk,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             )
+            if (comparison != null) {
+                Text(
+                    text = stringResource(comparison),
+                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                    color = colors.faintInk,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                )
+            }
             Text(
-                text = version.title.ifBlank { stringResource(R.string.untitled) },
+                text = if (version.title.isBlank()) {
+                    AnnotatedString(stringResource(R.string.untitled))
+                } else {
+                    highlighted(version.title, titleDiff)
+                },
                 style = if (version.title.isBlank()) {
                     titleStyle.copy(color = colors.faintInk, fontStyle = FontStyle.Italic, fontWeight = FontWeight.Normal)
                 } else {
@@ -132,7 +191,7 @@ private fun VersionPage(version: PoemVersion) {
                 },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             )
-            Text(text = version.body, style = bodyStyle)
+            Text(text = highlighted(version.body, bodyDiff), style = bodyStyle)
         }
     }
 }

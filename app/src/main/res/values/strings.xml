@@ -29,6 +29,8 @@
     <string name="history_version">Version from %1$s</string>
     <string name="history_read_only">This is an earlier version of the poem. It can\'t be edited here, but you can select and copy its text.</string>
     <string name="version_not_found">That version no longer exists.</string>
+    <string name="history_same_as_current">This is the same as the current version.</string>
+    <string name="history_differences">Highlighted text is not in the current version.</string>
     <string name="notepad">Notepad</string>
     <string name="notepad_hint">Ideas, rhymes, metaphors… The notepad belongs to the poem and is the same in every version.</string>
 
