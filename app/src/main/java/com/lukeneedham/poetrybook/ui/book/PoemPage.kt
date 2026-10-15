@@ -38,6 +38,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -79,6 +81,11 @@ fun PoemPage(
         LaunchedEffect(bodyState) {
             snapshotFlow { bodyState.text.toString() }.collect(onBodyChange)
         }
+
+        // Reading and editing share one scroll position, so switching between them doesn't move the text.
+        val bodyScroll = rememberScrollState()
+        // How the text was laid out when reading, to find the line at the top of the screen.
+        var readingLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
         val titleStyle = TextStyle(
             fontFamily = PoemFont,
@@ -158,6 +165,16 @@ fun PoemPage(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
                 if (editing) {
+                    // Start typing at the first line fully on screen, which is where you were reading.
+                    LaunchedEffect(Unit) {
+                        val offset = readingLayout?.let { layout ->
+                            val top = bodyScroll.value
+                            val line = (0 until layout.lineCount).firstOrNull { layout.getLineTop(it) >= top - 0.5f }
+                                ?: (layout.lineCount - 1)
+                            layout.getLineStart(line.coerceAtLeast(0))
+                        } ?: 0
+                        bodyState.edit { selection = TextRange(offset.coerceIn(0, length)) }
+                    }
                     val focusRequester = remember { FocusRequester() }
                     // Also when the signal changes, to take focus back after something else, like the notepad, had it.
                     LaunchedEffect(focusSignal) { focusRequester.requestFocus() }
@@ -165,6 +182,7 @@ fun PoemPage(
                         state = bodyState,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                         textStyle = bodyStyle,
+                        scrollState = bodyScroll,
                         cursorBrush = SolidColor(colors.accent),
                         decorator = { inner ->
                             Box {
@@ -190,9 +208,10 @@ fun PoemPage(
                     Text(
                         text = poem.body,
                         style = bodyStyle,
+                        onTextLayout = { readingLayout = it },
                         modifier = Modifier
                             .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
+                            .verticalScroll(bodyScroll),
                     )
                 }
             }
