@@ -72,15 +72,18 @@ private const val NewBook = ""
 /**
  * The bookshelf: every book in the chosen folder as a cover. Tap one to read it.
  *
- * The last tile starts a new book: its cover becomes editable right there, name and colour.
+ * The last tile starts a new book: its cover becomes editable right there, name and colour. The
+ * pencil on a cover does the same for an existing book, which stays where it is.
  *
  * @param onCreateBook creates a book with the given name and cover colour (ARGB); reports whether that worked.
+ * @param onEditBook renames a book and gives it a cover colour (ARGB); reports whether that worked.
  */
 @Composable
 fun ShelfScreen(
     books: List<Book>,
     onOpenBook: (Book) -> Unit,
     onCreateBook: (name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
+    onEditBook: (book: Book, name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -127,7 +130,34 @@ fun ShelfScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             items(books, key = { it.documentId }) { book ->
-                BookCover(book = book, onClick = { onOpenBook(book) })
+                if (editing == book.documentId) {
+                    BookEditor(
+                        initialName = book.name,
+                        initialColor = coverColor(book),
+                        nameEditable = !book.isLooseFiles,
+                        failed = failed,
+                        onConfirm = { name, color, onDone ->
+                            failed = false
+                            onEditBook(book, name, color.toArgb()) { ok ->
+                                if (ok) editing = null else failed = true
+                                onDone()
+                            }
+                        },
+                        onCancel = {
+                            failed = false
+                            editing = null
+                        },
+                    )
+                } else {
+                    BookCover(
+                        book = book,
+                        onClick = { onOpenBook(book) },
+                        onEdit = {
+                            failed = false
+                            editing = book.documentId
+                        },
+                    )
+                }
             }
             item(key = "new book") {
                 if (editing == NewBook) {
@@ -195,7 +225,7 @@ private fun CoverBox(color: Color, modifier: Modifier = Modifier, content: @Comp
 }
 
 @Composable
-private fun BookCover(book: Book, onClick: () -> Unit) {
+private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
     val colors = paperColors()
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         CoverBox(color = coverColor(book), modifier = Modifier.clickable(onClick = onClick)) {
@@ -208,6 +238,14 @@ private fun BookCover(book: Book, onClick: () -> Unit) {
                     .align(Alignment.Center)
                     .then(CoverTitlePadding),
             )
+            IconButton(onClick = onEdit, modifier = Modifier.align(Alignment.TopEnd)) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_pencil),
+                    contentDescription = stringResource(R.string.edit_book),
+                    tint = CoverTextColor.copy(alpha = 0.75f),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
         Text(
             text = pluralStringResource(R.plurals.poem_count, book.poemCount, book.poemCount),
@@ -245,6 +283,7 @@ private fun NewBookTile(onClick: () -> Unit) {
  * A cover whose name is typed straight onto it, where it will be shown, with the cover colour as a
  * circle underneath (tap it to pick another) between a cancel and a confirm button.
  *
+ * @param nameEditable false for a book whose name can't change (Misc), which then only gets a colour.
  * @param onConfirm called with the name and colour; call its `onDone` argument when finished so
  * the buttons can be used again.
  */
@@ -252,6 +291,7 @@ private fun NewBookTile(onClick: () -> Unit) {
 private fun BookEditor(
     initialName: String,
     initialColor: Color,
+    nameEditable: Boolean = true,
     failed: Boolean,
     onConfirm: (name: String, color: Color, onDone: () -> Unit) -> Unit,
     onCancel: () -> Unit,
@@ -262,10 +302,10 @@ private fun BookEditor(
     var pickingColor by rememberSaveable { mutableStateOf(false) }
     var busy by rememberSaveable { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    LaunchedEffect(Unit) { if (nameEditable) focusRequester.requestFocus() }
 
     val titleStyle = coverTitleStyle()
-    val canConfirm = nameState.text.isNotBlank() && !busy
+    val canConfirm = (nameState.text.isNotBlank() || !nameEditable) && !busy
     fun confirm() {
         if (!canConfirm) return
         busy = true
@@ -275,7 +315,17 @@ private fun BookEditor(
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         CoverBox(color = Color(colorArgb)) {
-            BasicTextField(
+            if (!nameEditable) {
+                Text(
+                    text = initialName,
+                    style = titleStyle,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .then(CoverTitlePadding),
+                )
+            } else BasicTextField(
                 state = nameState,
                 textStyle = titleStyle,
                 cursorBrush = SolidColor(CoverTextColor),
@@ -360,6 +410,7 @@ private fun ShelfPreview() {
             ),
             onOpenBook = {},
             onCreateBook = { _, _, _ -> },
+            onEditBook = { _, _, _, _ -> },
             onOpenSettings = {},
         )
     }

@@ -86,6 +86,7 @@ private fun AppNavDisplay(viewModel: PoemBookViewModel, start: NavKey) {
                         viewModel.openBook(book) { ok -> if (ok) backStack.add(Book) }
                     },
                     onCreateBook = { name, color, onDone -> viewModel.createBook(name, color) { onDone(it != null) } },
+                    onEditBook = { book, name, color, onDone -> viewModel.editBook(book, name, color, onDone) },
                     onOpenSettings = { backStack.add(Settings) },
                 )
             }
