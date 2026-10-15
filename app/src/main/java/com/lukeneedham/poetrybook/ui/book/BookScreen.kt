@@ -161,6 +161,10 @@ fun BookScreen(
                 contentsOpen = false
                 pageState.animateTo(index + 1)
             },
+            onSelectContentsPage = {
+                contentsOpen = false
+                pageState.animateTo(0)
+            },
             onMove = { from, to ->
                 // The page on show follows its poem to wherever that goes.
                 val shownId = poemAt(pageState.currentPage)?.id
