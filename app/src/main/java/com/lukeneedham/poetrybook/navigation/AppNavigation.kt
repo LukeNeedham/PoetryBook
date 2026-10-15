@@ -26,6 +26,9 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 private const val ScreenTransitionMillis = 300
 
+/** How long a closed book stays in memory, so its screen can still be drawn while it slides away. */
+private const val BookClearDelayMillis = ScreenTransitionMillis + 200L
+
 /** Going back: the screen being left slides away to the right, on top of the one revealed. */
 private fun popTransition(): ContentTransform =
     (
@@ -51,7 +54,7 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
         predictivePopTransitionSpec = { popTransition() },
         onBack = {
             // Leaving a book by going back puts it on the shelf, like the shelf button does.
-            if (backStack.lastOrNull() == Book) viewModel.closeBook()
+            if (backStack.lastOrNull() == Book) viewModel.closeBook(BookClearDelayMillis)
             backStack.removeLastOrNull()
         },
         entryProvider = entryProvider {
@@ -81,7 +84,7 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                 BookScreen(
                     viewModel = viewModel,
                     onOpenShelf = {
-                        viewModel.closeBook()
+                        viewModel.closeBook(BookClearDelayMillis)
                         // Back to the shelf, even if the book was opened from a search.
                         while (backStack.size > 1 && backStack.lastOrNull() != Shelf) backStack.removeLastOrNull()
                     },

@@ -27,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -94,6 +95,7 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     /** Opens [book] and calls [onDone] with whether it could be read. */
     fun openBook(book: Book, onDone: (Boolean) -> Unit) {
         scope.launch {
+            bookGeneration++
             val loaded = runCatching { locked { store.poems(book.id) } }.getOrNull()
             if (loaded == null) {
                 onDone(false)
@@ -109,13 +111,25 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** Puts the open book back on the shelf, saving any finished edits first. */
-    fun closeBook() {
+    /** Bumped whenever a book opens or closes, so a delayed clear in [closeBook] can tell it's out of date. */
+    private var bookGeneration = 0
+
+    /**
+     * Puts the open book back on the shelf, saving any finished edits first. The book's pages are
+     * kept in memory for [clearAfterMillis] more, so its screen can still be drawn while it
+     * animates away.
+     */
+    fun closeBook(clearAfterMillis: Long = 0) {
         if (currentBook == null) return
         commitAll()
-        stored.clear()
-        currentBook = null
-        poems.clear()
+        val generation = ++bookGeneration
+        scope.launch {
+            if (clearAfterMillis > 0) delay(clearAfterMillis)
+            if (generation != bookGeneration) return@launch
+            stored.clear()
+            currentBook = null
+            poems.clear()
+        }
     }
 
     /** Creates a book called [name] with the cover [color] (ARGB) and calls [onDone] with whether that worked. */
