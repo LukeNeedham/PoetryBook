@@ -42,7 +42,13 @@ import androidx.compose.ui.text.buildAnnotatedString
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.data.differingRanges
 import com.lukeneedham.poetrybook.ui.book.NotepadSheet
-import androidx.compose.runtime.produceState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.text.style.TextOverflow
+import com.lukeneedham.poetrybook.ui.book.HistorySheet
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -60,15 +66,12 @@ import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
-private sealed interface VersionState {
-    data object Loading : VersionState
-    data object Missing : VersionState
-    data class Found(val version: PoemVersion) : VersionState
-}
-
 /**
- * An earlier version of a poem, as it was when [createdAt] saved it. It can't be edited or
- * deleted here; the text can be selected and copied.
+ * The versions of a poem, newest first, as pages to swipe through: newer to the left, older to the
+ * right. Opens on the one saved at [createdAt]. Nothing can be edited or deleted here; the text can
+ * be selected and copied. The toolbar opens the history list to jump to any version, the notepad
+ * (the poem's, the same for every version) and a toggle that marks how the shown version differs
+ * from the current poem.
  */
 @Composable
 fun HistoryScreen(
@@ -79,14 +82,59 @@ fun HistoryScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = paperColors()
-    val state by produceState<VersionState>(VersionState.Loading, poemId, createdAt) {
-        value = viewModel.version(poemId, createdAt)?.let(VersionState::Found) ?: VersionState.Missing
+    val versionsFlow = remember(poemId) { viewModel.history(poemId) }
+    val versions by versionsFlow.collectAsState<List<PoemVersion>?>(initial = null)
+    val loaded = versions
+    val startIndex = loaded?.indexOfFirst { it.createdAt == createdAt }
+
+    when {
+        loaded == null -> Box(modifier.fillMaxSize().background(colors.paper))
+        startIndex == null || startIndex < 0 -> Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(colors.paper)
+                .windowInsetsPadding(WindowInsets.safeDrawing),
+        ) {
+            Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp)) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_chevron_left),
+                        contentDescription = stringResource(R.string.back),
+                        tint = colors.accent,
+                    )
+                }
+            }
+            HorizontalDivider(color = colors.faintInk.copy(alpha = 0.25f))
+            Text(
+                text = stringResource(R.string.version_not_found),
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.faintInk,
+                modifier = Modifier.padding(24.dp),
+            )
+        }
+        else -> HistoryPager(viewModel, poemId, loaded, startIndex, onBack, modifier)
     }
-    // The notes belong to the poem, so they are the same here as beside any other version.
+}
+
+@Composable
+private fun HistoryPager(
+    viewModel: PoemBookViewModel,
+    poemId: String,
+    versions: List<PoemVersion>,
+    startIndex: Int,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = paperColors()
+    val pagerState = rememberPagerState(initialPage = startIndex) { versions.size }
+    val scope = rememberCoroutineScope()
     var notepadOpen by rememberSaveable { mutableStateOf(false) }
+    var historyOpen by rememberSaveable { mutableStateOf(false) }
+    // The notes belong to the poem, so they are the same here as beside any other version.
     LaunchedEffect(poemId) { viewModel.loadNotes(poemId) }
     val notes = viewModel.loadedNotes(poemId)
     val currentPoem = viewModel.poems.firstOrNull { it.id == poemId }
+    val shown = versions.getOrNull(pagerState.currentPage)
 
     Column(
         modifier = modifier
@@ -94,54 +142,88 @@ fun HistoryScreen(
             .background(colors.paper)
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        Box(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp)) {
-            IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
                 Icon(
                     painter = painterResource(R.drawable.ic_chevron_left),
                     contentDescription = stringResource(R.string.back),
                     tint = colors.accent,
                 )
             }
-            Text(
-                text = formatTimestamp(createdAt),
-                style = MaterialTheme.typography.titleMedium,
-                color = colors.ink,
-                modifier = Modifier.align(Alignment.Center),
-            )
-            Row(Modifier.align(Alignment.CenterEnd)) {
-                if (currentPoem != null) {
-                    val showing = viewModel.showHistoryChanges
-                    IconButton(onClick = { viewModel.changeShowHistoryChanges(!showing) }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_compare),
-                            contentDescription = stringResource(
-                                if (showing) R.string.history_hide_changes else R.string.history_show_changes,
-                            ),
-                            tint = colors.accent.copy(alpha = if (showing) 1f else 0.45f),
-                        )
-                    }
-                }
-                IconButton(onClick = { notepadOpen = true }) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_notepad),
-                        contentDescription = stringResource(R.string.notepad),
-                        tint = colors.accent,
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (shown != null) {
+                    Text(
+                        text = formatTimestamp(shown.createdAt),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = colors.ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = if (pagerState.currentPage == 0) {
+                            stringResource(R.string.history_current)
+                        } else {
+                            stringResource(R.string.history_position, pagerState.currentPage + 1, versions.size)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.faintInk,
+                        maxLines = 1,
                     )
                 }
+            }
+            IconButton(onClick = { historyOpen = true }) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_history),
+                    contentDescription = stringResource(R.string.history),
+                    tint = colors.accent,
+                )
+            }
+            if (currentPoem != null) {
+                val showing = viewModel.showHistoryChanges
+                IconButton(onClick = { viewModel.changeShowHistoryChanges(!showing) }) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_compare),
+                        contentDescription = stringResource(
+                            if (showing) R.string.history_hide_changes else R.string.history_show_changes,
+                        ),
+                        tint = colors.accent.copy(alpha = if (showing) 1f else 0.45f),
+                    )
+                }
+            }
+            IconButton(onClick = { notepadOpen = true }) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_notepad),
+                    contentDescription = stringResource(R.string.notepad),
+                    tint = colors.accent,
+                )
             }
         }
         HorizontalDivider(color = colors.faintInk.copy(alpha = 0.25f))
 
-        when (val current = state) {
-            VersionState.Loading -> Unit
-            VersionState.Missing -> Text(
-                text = stringResource(R.string.version_not_found),
-                style = MaterialTheme.typography.bodyLarge,
-                color = colors.faintInk,
-                modifier = Modifier.padding(24.dp),
-            )
-            is VersionState.Found -> VersionPage(current.version, compareTo = currentPoem, showChanges = viewModel.showHistoryChanges)
+        HorizontalPager(
+            state = pagerState,
+            key = { versions.getOrNull(it)?.createdAt ?: it },
+            modifier = Modifier.fillMaxSize(),
+        ) { page ->
+            versions.getOrNull(page)?.let { version ->
+                VersionPage(version, compareTo = currentPoem, showChanges = viewModel.showHistoryChanges)
+            }
         }
+    }
+
+    if (historyOpen) {
+        HistorySheet(
+            versions = remember(poemId) { viewModel.history(poemId) },
+            onSelect = { version ->
+                historyOpen = false
+                val index = versions.indexOfFirst { it.createdAt == version.createdAt }
+                if (index >= 0) scope.launch { pagerState.animateScrollToPage(index) }
+            },
+            onDismiss = { historyOpen = false },
+        )
     }
 
     if (notepadOpen && notes != null) {

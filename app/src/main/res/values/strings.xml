@@ -25,6 +25,7 @@
     <string name="settings">Settings</string>
 
     <string name="history">History</string>
+    <string name="history_position">Version %1$d of %2$d</string>
     <string name="history_current">Current version</string>
     <string name="history_version">Version from %1$s</string>
     <string name="history_read_only">This is an earlier version of the poem. It can\'t be edited here, but you can select and copy its text.</string>
