@@ -57,7 +57,7 @@ class AppSettings(context: Context) {
     companion object {
         const val MIN_SHELF_COLUMNS = 1
         const val DEFAULT_SHELF_COLUMNS = 2
-        const val MAX_SHELF_COLUMNS = 5
+        const val MAX_SHELF_COLUMNS = 4
         private const val KEY_SORT = "bookSort"
         private const val KEY_COLUMNS = "shelfColumns"
         private const val KEY_HISTORY_CHANGES = "showHistoryChanges"

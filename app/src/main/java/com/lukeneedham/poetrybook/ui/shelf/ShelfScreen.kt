@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import kotlin.math.ln
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,6 +66,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -134,6 +136,8 @@ fun ShelfScreen(
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var failed by rememberSaveable { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
+    val currentColumns = rememberUpdatedState(columns)
+    val currentOnColumnsChange = rememberUpdatedState(onColumnsChange)
     var deleting by remember { mutableStateOf<Book?>(null) }
 
     // Going back from the editor drops what was typed.
@@ -188,7 +192,7 @@ fun ShelfScreen(
             contentPadding = PaddingValues(24.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.fillMaxSize().pinchToChangeColumns(columns, onColumnsChange),
+            modifier = Modifier.fillMaxSize().pinchToChangeColumns(currentColumns, currentOnColumnsChange),
         ) {
             items(books, key = { it.id }) { book ->
                 if (editing == book.id) {
@@ -352,34 +356,32 @@ private fun TextStyle.scaledBy(scale: Float): TextStyle =
 /** Where a cover's name sits, clear of the spine. */
 private fun coverTitlePadding(scale: Float) = Modifier.padding(start = 26.dp * scale, end = 14.dp * scale)
 
+/** Each step of the pinch, in how much the fingers move apart or together, changes the books per row by one. */
+private const val PinchStepZoom = 1.35f
+
 /**
  * Pinching the shelf changes how many books are in a row: spreading the fingers makes the books
- * bigger (fewer per row), pinching makes them smaller. A single finger is left alone, so the shelf still scrolls.
+ * bigger (fewer per row), pinching makes them smaller. A single pinch can go through several
+ * levels, one for every [PinchStepZoom] of zoom, and back again without lifting the fingers.
+ * A single finger is left alone, so the shelf still scrolls.
  */
-private fun Modifier.pinchToChangeColumns(columns: Int, onColumnsChange: (Int) -> Unit): Modifier =
-    pointerInput(columns) {
+private fun Modifier.pinchToChangeColumns(
+    columns: State<Int>,
+    onColumnsChange: State<(Int) -> Unit>,
+): Modifier =
+    pointerInput(Unit) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val startColumns = columns.value
             var zoom = 1f
             do {
                 val event = awaitPointerEvent(PointerEventPass.Initial)
                 if (event.changes.count { it.pressed } >= 2) {
                     zoom *= event.calculateZoom()
                     event.changes.forEach { it.consume() }
-                    val target = when {
-                        zoom > 1.3f -> columns - 1
-                        zoom < 0.77f -> columns + 1
-                        else -> columns
-                    }.coerceIn(AppSettings.MIN_SHELF_COLUMNS, AppSettings.MAX_SHELF_COLUMNS)
-                    if (target != columns) {
-                        onColumnsChange(target)
-                        // One step per pinch: swallow the rest of this gesture.
-                        do {
-                            val rest = awaitPointerEvent(PointerEventPass.Initial)
-                            rest.changes.forEach { it.consume() }
-                        } while (rest.changes.any { it.pressed })
-                        return@awaitEachGesture
-                    }
+                    val steps = (ln(zoom) / ln(PinchStepZoom)).toInt()
+                    val target = (startColumns - steps).coerceIn(AppSettings.MIN_SHELF_COLUMNS, AppSettings.MAX_SHELF_COLUMNS)
+                    if (target != columns.value) onColumnsChange.value(target)
                 }
             } while (event.changes.any { it.pressed })
         }

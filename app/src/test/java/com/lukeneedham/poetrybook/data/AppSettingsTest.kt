@@ -38,12 +38,12 @@ class AppSettingsTest {
     // --- Shelf columns ---
 
     @Test
-    fun `the shelf shows two books a row until the user zooms, and remembers the choice within 1 to 5`() {
+    fun `the shelf shows two books a row until the user zooms, and remembers the choice within 1 to 4`() {
         assertEquals(2, settings.shelfColumns)
-        settings.shelfColumns = 4
-        assertEquals(4, AppSettings(context).shelfColumns)
+        settings.shelfColumns = 3
+        assertEquals(3, AppSettings(context).shelfColumns)
         settings.shelfColumns = 9
-        assertEquals(5, settings.shelfColumns)
+        assertEquals(4, settings.shelfColumns)
         settings.shelfColumns = 0
         assertEquals(1, settings.shelfColumns)
     }
