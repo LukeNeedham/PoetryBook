@@ -84,6 +84,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
@@ -328,10 +329,17 @@ private fun coverTitleStyle(): TextStyle =
 /** Where the label sits in the outlined book. */
 private val NewBookLabelPadding = 16.dp
 
-private val CoverTitlePadding = Modifier.padding(start = 26.dp, end = 14.dp)
-
 /** The width a cover is drawn at with the default two books to a row, which its sizes are written for. */
 private val ReferenceCoverWidth = 150.dp
+
+/** How much bigger or smaller than the shelf's usual cover one [width] wide is, which its text and padding follow. */
+private fun coverScale(width: Dp): Float = (width / ReferenceCoverWidth).coerceIn(0.2f, 3f)
+
+private fun TextStyle.scaledBy(scale: Float): TextStyle =
+    copy(fontSize = fontSize * scale, lineHeight = lineHeight * scale)
+
+/** Where a cover's name sits, clear of the spine. */
+private fun coverTitlePadding(scale: Float) = Modifier.padding(start = 26.dp * scale, end = 14.dp * scale)
 
 /**
  * Pinching the shelf changes how many books are in a row: spreading the fingers makes the books
@@ -382,7 +390,7 @@ private fun CoverBox(
             .aspectRatio(0.72f)
             .background(color, CoverShape),
     ) {
-        val scale = (maxWidth / ReferenceCoverWidth).coerceIn(0.2f, 3f)
+        val scale = coverScale(maxWidth)
         // The spine.
         Box(
             Modifier
@@ -402,14 +410,10 @@ private fun CoverBox(
 @Composable
 internal fun BookCoverFace(book: Book, modifier: Modifier = Modifier, showCount: Boolean = true) {
     CoverBox(color = coverColor(book), modifier = modifier) { scale ->
-        val titleStyle = coverTitleStyle()
-        val padding = Modifier.padding(start = 26.dp * scale, end = 14.dp * scale)
+        val padding = coverTitlePadding(scale)
         Text(
             text = book.name,
-            style = titleStyle.copy(
-                fontSize = titleStyle.fontSize * scale,
-                lineHeight = titleStyle.lineHeight * scale,
-            ),
+            style = coverTitleStyle().scaledBy(scale),
             maxLines = 4,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
@@ -420,10 +424,7 @@ internal fun BookCoverFace(book: Book, modifier: Modifier = Modifier, showCount:
             val countStyle = MaterialTheme.typography.bodySmall
             Text(
                 text = pluralStringResource(R.plurals.poem_count, book.poemCount, book.poemCount),
-                style = countStyle.copy(
-                    fontSize = countStyle.fontSize * scale,
-                    lineHeight = countStyle.lineHeight * scale,
-                ),
+                style = countStyle.scaledBy(scale),
                 color = CoverTextColor.copy(alpha = 0.75f),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -494,7 +495,7 @@ private fun newBookLabelStyle(): TextStyle =
 private fun NewBookTile(onClick: () -> Unit) {
     val colors = paperColors()
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.72f)
@@ -502,10 +503,11 @@ private fun NewBookTile(onClick: () -> Unit) {
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
+            val scale = coverScale(maxWidth)
             Text(
                 text = stringResource(R.string.new_book),
-                style = newBookLabelStyle(),
-                modifier = Modifier.padding(NewBookLabelPadding),
+                style = newBookLabelStyle().scaledBy(scale),
+                modifier = Modifier.padding(NewBookLabelPadding * scale),
             )
         }
     }
@@ -567,7 +569,6 @@ private fun BookEditor(
         }
     }
 
-    val titleStyle = coverTitleStyle().copy(color = colors.ink)
     val canConfirm = (nameState.text.isNotBlank() || !nameEditable) && !busy
     fun confirm() {
         if (!canConfirm) return
@@ -576,7 +577,7 @@ private fun BookEditor(
         onConfirm(nameState.text.toString().replace('\n', ' '), Color(colorArgb)) { busy = false }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(0.72f)
@@ -584,6 +585,10 @@ private fun BookEditor(
             .bringIntoViewRequester(bringIntoView)
             .border(2.dp, colors.faintInk.copy(alpha = 0.5f), RoundedCornerShape(10.dp)),
     ) {
+        // The name is the same size here as it will be on the finished cover, whatever the zoom.
+        val scale = coverScale(maxWidth)
+        val titleStyle = coverTitleStyle().copy(color = colors.ink).scaledBy(scale)
+        val titlePadding = coverTitlePadding(scale)
         if (!nameEditable) {
             Text(
                 text = initialName,
@@ -592,17 +597,17 @@ private fun BookEditor(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .then(CoverTitlePadding),
+                    .then(titlePadding),
             )
         } else {
             if (nameState.text.isEmpty()) {
                 // Not part of the field, so it sits exactly where the tile's label does.
                 Text(
                     text = placeholder,
-                    style = newBookLabelStyle(),
+                    style = newBookLabelStyle().scaledBy(scale),
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .padding(NewBookLabelPadding),
+                        .padding(NewBookLabelPadding * scale),
                 )
             }
             BasicTextField(
@@ -620,7 +625,7 @@ private fun BookEditor(
                 },
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .then(CoverTitlePadding)
+                    .then(titlePadding)
                     .focusRequester(focusRequester),
             )
         }
