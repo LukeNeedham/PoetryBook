@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import com.lukeneedham.common.ui.ProvideAnimationSpeed
 import com.lukeneedham.poetrybook.navigation.AppNavigation
 import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
@@ -17,8 +18,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PoetryBookTheme {
-                AppNavigation(viewModel)
+            ProvideAnimationSpeed {
+                PoetryBookTheme {
+                    AppNavigation(viewModel)
+                }
             }
         }
     }

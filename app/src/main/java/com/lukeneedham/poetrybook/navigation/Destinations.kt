@@ -24,6 +24,16 @@ data object Search : NavKey
 @Serializable
 data object Settings : NavKey
 
+/** Debug hub (debug builds only), with the logs and crashes pages below it. */
+@Serializable
+data object Debug : NavKey
+
+@Serializable
+data object Logs : NavKey
+
+@Serializable
+data object Crashes : NavKey
+
 /** Deleted books and poems. */
 @Serializable
 data object Bin : NavKey

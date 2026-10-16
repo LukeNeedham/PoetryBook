@@ -6,6 +6,16 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import com.lukeneedham.common.ui.CrashesPage
+import com.lukeneedham.common.ui.DebugButton
+import com.lukeneedham.common.ui.DebugPage
+import com.lukeneedham.common.ui.LogsPage
+import com.lukeneedham.poetrybook.BuildConfig
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -40,6 +50,7 @@ private fun popTransition(): ContentTransform =
 fun AppNavigation(viewModel: PoemBookViewModel) {
     val backStack = rememberNavBackStack(Shelf)
 
+    Box {
     NavDisplay(
         // Paper behind the screens, so a transition never shows anything else through a gap.
         modifier = Modifier.background(paperColors().paper),
@@ -131,6 +142,26 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
             entry<BinBookPreview> { key ->
                 BinBookScreen(viewModel, key.bookId, onBack = { backStack.removeLastOrNull() })
             }
+            // The debug pages are only registered in debug builds, so release has no route to them.
+            if (BuildConfig.DEBUG) {
+                entry<Debug> {
+                    DebugPage(
+                        onBack = { backStack.removeLastOrNull() },
+                        onOpenLogs = { backStack.add(Logs) },
+                        onOpenCrashes = { backStack.add(Crashes) },
+                    )
+                }
+                entry<Logs> { LogsPage(onBack = { backStack.removeLastOrNull() }) }
+                entry<Crashes> { CrashesPage(onBack = { backStack.removeLastOrNull() }) }
+            }
         },
     )
+    // Draws nothing unless DebugKit is enabled (debug builds). Only on the shelf, to stay out of the way.
+    if (BuildConfig.DEBUG && backStack.lastOrNull() == Shelf) {
+        DebugButton(
+            onClick = { backStack.add(Debug) },
+            modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(16.dp),
+        )
+    }
+    }
 }
