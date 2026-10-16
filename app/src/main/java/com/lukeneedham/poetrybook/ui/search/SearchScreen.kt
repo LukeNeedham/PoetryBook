@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -42,12 +43,16 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
+import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.searchPoems
 import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
-import com.lukeneedham.poetrybook.ui.shelf.MiniBook
+import com.lukeneedham.poetrybook.ui.shelf.BookCoverFace
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.paperColors
+
+/** How wide the book beside each result is; its height follows the shelf's proportions. */
+private val SearchBookWidth = 54.dp
 
 /**
  * Every poem in every book, filtered by what is typed in the search bar and ordered by how well
@@ -147,7 +152,12 @@ fun SearchScreen(
                         color = if (poem.title.isBlank()) colors.faintInk else colors.ink,
                         modifier = Modifier.weight(1f).padding(end = 12.dp),
                     )
-                    MiniBook(name = poem.bookName, color = poem.bookColor)
+                    // The same cover the bookshelf draws, just narrow: its name and spine scale down with it.
+                    BookCoverFace(
+                        book = Book(id = poem.bookId, name = poem.bookName, poemCount = 0, color = poem.bookColor),
+                        modifier = Modifier.width(SearchBookWidth),
+                        showCount = false,
+                    )
                 }
             }
         }

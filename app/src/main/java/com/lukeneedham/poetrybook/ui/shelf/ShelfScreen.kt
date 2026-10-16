@@ -446,36 +446,6 @@ internal fun BookCoverFace(book: Book, modifier: Modifier = Modifier, showCount:
     }
 }
 
-/**
- * A tiny version of a book's cover on the shelf, same colour and spine, with its name centred
- * in very small type. For rows that say which book something is in.
- */
-@Composable
-internal fun MiniBook(name: String, color: Int?, modifier: Modifier = Modifier) {
-    val cover = coverColor(Book(id = "", name = name, poemCount = 0, color = color))
-    Box(
-        modifier = modifier
-            .size(width = 54.dp, height = 54.dp * BookHeightPerWidth)
-            .background(cover, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp, topStart = 1.dp, bottomStart = 1.dp)),
-    ) {
-        Box(
-            Modifier
-                .width(7.dp)
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.22f), RoundedCornerShape(topStart = 1.dp, bottomStart = 1.dp)),
-        )
-        Text(
-            text = name,
-            style = coverTitleStyle().copy(fontSize = 6.sp, lineHeight = 7.sp),
-            maxLines = 4,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(start = 12.dp, end = 4.dp),
-        )
-    }
-}
-
 @Composable
 private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
     val haptics = LocalHapticFeedback.current
