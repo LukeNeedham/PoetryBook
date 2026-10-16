@@ -334,6 +334,12 @@ private fun coverTitleStyle(): TextStyle =
 /** Where the label sits in the outlined book. */
 private val NewBookLabelPadding = 16.dp
 
+/** Every book is this much taller than it is wide: 1.3 tall for 1 wide. */
+private const val BookHeightPerWidth = 1.3f
+
+/** The width of a book over its height, which is what `aspectRatio` takes. */
+private const val BookAspectRatio = 1f / BookHeightPerWidth
+
 /** The width a cover is drawn at with the default two books to a row, which its sizes are written for. */
 private val ReferenceCoverWidth = 150.dp
 
@@ -392,7 +398,7 @@ private fun CoverBox(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(0.72f)
+            .aspectRatio(BookAspectRatio)
             .background(color, CoverShape),
     ) {
         val scale = coverScale(maxWidth)
@@ -449,7 +455,7 @@ internal fun MiniBook(name: String, color: Int?, modifier: Modifier = Modifier) 
     val cover = coverColor(Book(id = "", name = name, poemCount = 0, color = color))
     Box(
         modifier = modifier
-            .size(width = 54.dp, height = 75.dp)
+            .size(width = 54.dp, height = 54.dp * BookHeightPerWidth)
             .background(cover, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp, topStart = 1.dp, bottomStart = 1.dp)),
     ) {
         Box(
@@ -503,7 +509,7 @@ private fun NewBookTile(onClick: () -> Unit) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.72f)
+                .aspectRatio(BookAspectRatio)
                 .border(2.dp, colors.faintInk.copy(alpha = 0.5f), CoverShape)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
@@ -585,7 +591,7 @@ private fun BookEditor(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.72f)
+            .aspectRatio(BookAspectRatio)
             .onSizeChanged { bookSize = it }
             .bringIntoViewRequester(bringIntoView)
             .border(2.dp, colors.faintInk.copy(alpha = 0.5f), CoverShape),
