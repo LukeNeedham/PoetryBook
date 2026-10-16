@@ -24,6 +24,11 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import com.lukeneedham.poetrybook.data.AppSettings
@@ -529,7 +534,7 @@ private fun NewBookTile(onClick: () -> Unit) {
  * @param onConfirm called with the name and colour; call its `onDone` argument when finished so
  * the buttons can be used again.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun BookEditor(
     initialName: String,
@@ -630,51 +635,69 @@ private fun BookEditor(
             )
         }
 
+        // The controls shrink with the book, but not below something that can still be tapped.
+        val buttonSize = (48.dp * scale).coerceAtLeast(22.dp)
+        val iconSize = (24.dp * scale).coerceAtLeast(14.dp)
+        val circleSize = (32.dp * scale).coerceAtLeast(16.dp)
+
         if (onDelete != null) {
-            IconButton(onClick = onDelete, modifier = Modifier.align(Alignment.TopEnd)) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_trash),
-                    contentDescription = stringResource(R.string.delete_book),
-                    tint = colors.ink,
-                )
-            }
+            EditorButton(
+                painter = painterResource(R.drawable.ic_trash),
+                description = stringResource(R.string.delete_book),
+                tint = colors.ink,
+                buttonSize = buttonSize,
+                iconSize = iconSize,
+                onClick = onDelete,
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
         }
 
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 4.dp),
+                .fillMaxWidth()
+                .padding(bottom = 4.dp * scale),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (failed) {
                 Text(
                     text = stringResource(R.string.new_book_failed),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.scaledBy(scale),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onCancel) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_close),
-                        contentDescription = stringResource(R.string.cancel),
-                        tint = colors.ink,
-                    )
-                }
+            // On a book too narrow for all three on one line, the controls wrap onto more lines.
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                EditorButton(
+                    painter = painterResource(R.drawable.ic_close),
+                    description = stringResource(R.string.cancel),
+                    tint = colors.ink,
+                    buttonSize = buttonSize,
+                    iconSize = iconSize,
+                    onClick = onCancel,
+                )
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(buttonSize)
+                        .wrapContentSize()
+                        .size(circleSize)
                         .clip(CircleShape)
                         .background(Color(colorArgb))
                         .clickable(onClickLabel = stringResource(R.string.choose_colour)) { pickingColor = true },
                 )
-                IconButton(onClick = ::confirm, enabled = canConfirm) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_check),
-                        contentDescription = stringResource(R.string.done),
-                        tint = colors.ink.copy(alpha = if (canConfirm) 1f else 0.35f),
-                    )
-                }
+                EditorButton(
+                    painter = painterResource(R.drawable.ic_check),
+                    description = stringResource(R.string.done),
+                    tint = colors.ink.copy(alpha = if (canConfirm) 1f else 0.35f),
+                    buttonSize = buttonSize,
+                    iconSize = iconSize,
+                    enabled = canConfirm,
+                    onClick = ::confirm,
+                )
             }
         }
     }
@@ -685,6 +708,29 @@ private fun BookEditor(
             onSelect = { colorArgb = it.toArgb() },
             onDismiss = { pickingColor = false },
         )
+    }
+}
+
+/** An icon button for the book editor, [buttonSize] square with an [iconSize] icon, which can be smaller than the usual 48dp. */
+@Composable
+private fun EditorButton(
+    painter: Painter,
+    description: String,
+    tint: Color,
+    buttonSize: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Box(
+        modifier = modifier
+            .size(buttonSize)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painter = painter, contentDescription = description, tint = tint, modifier = Modifier.size(iconSize))
     }
 }
 
