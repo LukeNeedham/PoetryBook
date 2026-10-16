@@ -119,11 +119,7 @@ fun PoemPage(
                     BasicTextField(
                         state = titleState,
                         textStyle = titleStyle,
-                        // Long titles wrap rather than scroll; the title is one paragraph, so no line breaks.
-                        inputTransformation = {
-                            val text = asCharSequence()
-                            if (text.contains('\n')) replace(0, length, text.toString().replace("\n", ""))
-                        },
+                        // Long titles wrap rather than scroll, and Enter starts a new line.
                         cursorBrush = SolidColor(colors.accent),
                         decorator = { inner ->
                             Box(contentAlignment = Alignment.Center) {
