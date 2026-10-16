@@ -17,6 +17,10 @@ data object Book : NavKey
 @Serializable
 data class History(val poemId: String, val createdAt: Long) : NavKey
 
+/** Search across every poem. */
+@Serializable
+data object Search : NavKey
+
 @Serializable
 data object Settings : NavKey
 

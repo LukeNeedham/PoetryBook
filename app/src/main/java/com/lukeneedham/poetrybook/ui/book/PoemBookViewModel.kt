@@ -18,6 +18,7 @@ import com.lukeneedham.poetrybook.data.DirectoryImporter
 import com.lukeneedham.poetrybook.data.ImportResult
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.data.PoemStore
+import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.PoemVersion
 import com.lukeneedham.poetrybook.data.db.PoetryDatabase
 import com.lukeneedham.poetrybook.data.sortedFor
@@ -26,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -53,6 +55,24 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     /** How the bookshelf is ordered. */
     var bookSort by mutableStateOf(settings.bookSort)
         private set
+
+    /** How many books the bookshelf shows in a row; pinching the shelf changes it. */
+    var shelfColumns by mutableStateOf(settings.shelfColumns)
+        private set
+
+    fun changeShelfColumns(columns: Int) {
+        shelfColumns = columns.coerceIn(AppSettings.MIN_SHELF_COLUMNS, AppSettings.MAX_SHELF_COLUMNS)
+        settings.shelfColumns = shelfColumns
+    }
+
+    /** Whether an older version of a poem is shown with its differences from the current poem marked. */
+    var showHistoryChanges by mutableStateOf(settings.showHistoryChanges)
+        private set
+
+    fun changeShowHistoryChanges(show: Boolean) {
+        showHistoryChanges = show
+        settings.showHistoryChanges = show
+    }
 
     /** [books] in the order the bookshelf shows them. */
     val shelfBooks: List<Book>
@@ -93,6 +113,7 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     /** Opens [book] and calls [onDone] with whether it could be read. */
     fun openBook(book: Book, onDone: (Boolean) -> Unit) {
         scope.launch {
+            bookGeneration++
             val loaded = runCatching { locked { store.poems(book.id) } }.getOrNull()
             if (loaded == null) {
                 onDone(false)
@@ -108,13 +129,25 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** Puts the open book back on the shelf, saving any finished edits first. */
-    fun closeBook() {
+    /** Bumped whenever a book opens or closes, so a delayed clear in [closeBook] can tell it's out of date. */
+    private var bookGeneration = 0
+
+    /**
+     * Puts the open book back on the shelf, saving any finished edits first. The book's pages are
+     * kept in memory for [clearAfterMillis] more, so its screen can still be drawn while it
+     * animates away.
+     */
+    fun closeBook(clearAfterMillis: Long = 0) {
         if (currentBook == null) return
         commitAll()
-        stored.clear()
-        currentBook = null
-        poems.clear()
+        val generation = ++bookGeneration
+        scope.launch {
+            if (clearAfterMillis > 0) delay(clearAfterMillis)
+            if (generation != bookGeneration) return@launch
+            stored.clear()
+            currentBook = null
+            poems.clear()
+        }
     }
 
     /** Creates a book called [name] with the cover [color] (ARGB) and calls [onDone] with whether that worked. */
@@ -194,6 +227,21 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
+     * Moves the poem to the end of the book [bookId] and returns the index of the page to show
+     * instead. The poem must already be stored: finish its edit with [commit] first.
+     */
+    fun movePoemToBook(id: String, bookId: String): Int {
+        val book = currentBook
+        val index = poems.indexOfFirst { it.id == id }
+        if (index < 0 || book == null || book.id == bookId || id !in stored) return index.coerceAtLeast(0)
+        poems.removeAt(index)
+        stored.remove(id)
+        keepOneBlankPoemLast()
+        scope.launch { runCatching { locked { store.movePoem(id, bookId) } } }
+        return index.coerceAtMost(poems.lastIndex)
+    }
+
+    /**
      * Moves the poem at page [from] to page [to]. The blank poem always stays last, so neither
      * index may be that page.
      */
@@ -218,6 +266,30 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
         // Only the end changes, so touch only the end and leave the other pages alone.
         if (fixed.size > poems.size) poems.add(fixed.last())
         while (poems.size > fixed.size) poems.removeAt(poems.lastIndex)
+    }
+
+    // --- Search ---
+
+    /** A poem a search result wants shown as soon as its book has opened, once. */
+    var poemToShow: String? by mutableStateOf(null)
+
+    /** Every poem on the shelf with its current title and text, as of the last saved edit. */
+    suspend fun searchablePoems(): List<SearchPoem> {
+        commitAll()
+        return locked { store.searchablePoems() }
+    }
+
+    /** Opens the book with the poem [poemId] and shows that poem. [onDone] says whether it worked. */
+    fun openPoem(bookId: String, poemId: String, onDone: (Boolean) -> Unit) {
+        val book = books.firstOrNull { it.id == bookId }
+        if (book == null) {
+            onDone(false)
+            return
+        }
+        openBook(book) { ok ->
+            if (ok) poemToShow = poemId
+            onDone(ok)
+        }
     }
 
     // --- Notepad and history ---

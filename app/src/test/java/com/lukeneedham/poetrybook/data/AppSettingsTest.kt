@@ -26,6 +26,28 @@ class AppSettingsTest {
 
     private fun prefs() = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
+    @Test
+    fun `history changes are hidden until switched on, and the choice is remembered`() {
+        assertEquals(false, settings.showHistoryChanges)
+        settings.showHistoryChanges = true
+        assertEquals(true, AppSettings(context).showHistoryChanges)
+        settings.showHistoryChanges = false
+        assertEquals(false, AppSettings(context).showHistoryChanges)
+    }
+
+    // --- Shelf columns ---
+
+    @Test
+    fun `the shelf shows two books a row until the user zooms, and remembers the choice within 1 to 4`() {
+        assertEquals(2, settings.shelfColumns)
+        settings.shelfColumns = 3
+        assertEquals(3, AppSettings(context).shelfColumns)
+        settings.shelfColumns = 9
+        assertEquals(4, settings.shelfColumns)
+        settings.shelfColumns = 0
+        assertEquals(1, settings.shelfColumns)
+    }
+
     // --- Sort ---
 
     @Test

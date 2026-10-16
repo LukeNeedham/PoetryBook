@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,15 +15,15 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,13 +38,15 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Poem
@@ -62,6 +66,7 @@ fun PoemPage(
     editing: Boolean,
     focusSignal: Int = 0,
     onDelete: (() -> Unit)? = null,
+    onMove: (() -> Unit)? = null,
     onTitleChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -77,6 +82,11 @@ fun PoemPage(
         LaunchedEffect(bodyState) {
             snapshotFlow { bodyState.text.toString() }.collect(onBodyChange)
         }
+
+        // Reading and editing share one scroll position, so switching between them doesn't move the text.
+        val bodyScroll = rememberScrollState()
+        // How the text was laid out when reading, to find the line at the top of the screen.
+        var readingLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
 
         val titleStyle = TextStyle(
             fontFamily = PoemFont,
@@ -109,7 +119,7 @@ fun PoemPage(
                     BasicTextField(
                         state = titleState,
                         textStyle = titleStyle,
-                        lineLimits = TextFieldLineLimits.SingleLine,
+                        // Long titles wrap rather than scroll, and Enter starts a new line.
                         cursorBrush = SolidColor(colors.accent),
                         decorator = { inner ->
                             Box(contentAlignment = Alignment.Center) {
@@ -141,8 +151,6 @@ fun PoemPage(
                                 it
                             }
                         },
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -154,6 +162,26 @@ fun PoemPage(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
                 if (editing) {
+                    // Start typing at the end of the first line fully on screen, so the cursor is already
+                    // in view and nothing needs to scroll.
+                    LaunchedEffect(Unit) {
+                        val offset = readingLayout?.let { layout ->
+                            val top = bodyScroll.value
+                            val line = (0 until layout.lineCount).firstOrNull {
+                                layout.getLineTop(it) >= top - 0.5f && layout.getLineBottom(it) > layout.getLineTop(it)
+                            } ?: (layout.lineCount - 1)
+                            layout.getLineEnd(line.coerceAtLeast(0), visibleEnd = true)
+                        } ?: 0
+                        bodyState.edit { selection = TextRange(offset.coerceIn(0, length)) }
+                    }
+                    // Whatever the text field does to show the cursor, the text stays where it was while
+                    // the editor settles in.
+                    LaunchedEffect(Unit) {
+                        val target = bodyScroll.value
+                        withTimeoutOrNull(500) {
+                            snapshotFlow { bodyScroll.value }.collect { if (it != target) bodyScroll.scrollTo(target) }
+                        }
+                    }
                     val focusRequester = remember { FocusRequester() }
                     // Also when the signal changes, to take focus back after something else, like the notepad, had it.
                     LaunchedEffect(focusSignal) { focusRequester.requestFocus() }
@@ -161,6 +189,7 @@ fun PoemPage(
                         state = bodyState,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                         textStyle = bodyStyle,
+                        scrollState = bodyScroll,
                         cursorBrush = SolidColor(colors.accent),
                         decorator = { inner ->
                             Box {
@@ -186,26 +215,18 @@ fun PoemPage(
                     Text(
                         text = poem.body,
                         style = bodyStyle,
+                        onTextLayout = { readingLayout = it },
                         modifier = Modifier
                             .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
+                            .verticalScroll(bodyScroll),
                     )
                 }
             }
 
             if (editing) {
-                // Deleting is part of editing, and sits here so the toolbar never changes.
-                if (onDelete != null) {
-                    TextButton(
-                        onClick = onDelete,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.delete_poem),
-                            style = MaterialTheme.typography.labelLarge.copy(fontFamily = PoemFont),
-                            color = colors.faintInk,
-                        )
-                    }
+                // Actions on the poem belong to editing, and sit here so the top toolbar never changes.
+                if (onDelete != null || onMove != null) {
+                    EditToolbar(onDelete = onDelete, onMove = onMove)
                 }
             } else {
                 Text(
@@ -216,6 +237,39 @@ fun PoemPage(
                         .align(Alignment.CenterHorizontally)
                         .padding(top = 12.dp, bottom = 20.dp),
                 )
+            }
+        }
+    }
+}
+
+/** The second toolbar, along the bottom while a poem is being edited: actions on the poem itself. */
+@Composable
+private fun EditToolbar(onDelete: (() -> Unit)?, onMove: (() -> Unit)?) {
+    val colors = paperColors()
+    Column(Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = colors.faintInk.copy(alpha = 0.25f))
+        Row(
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (onDelete != null) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_trash),
+                        contentDescription = stringResource(R.string.delete_poem),
+                        tint = colors.accent,
+                    )
+                }
+            }
+            if (onMove != null) {
+                IconButton(onClick = onMove) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_move),
+                        contentDescription = stringResource(R.string.move_poem),
+                        tint = colors.accent,
+                    )
+                }
             }
         }
     }

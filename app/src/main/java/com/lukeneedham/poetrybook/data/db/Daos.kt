@@ -22,6 +22,16 @@ data class PoemRow(
     val body: String,
 )
 
+/** A live poem with its latest version and the book it is in, for searching. */
+data class SearchRow(
+    val id: String,
+    val bookId: String,
+    val bookName: String,
+    val bookColor: Int?,
+    val title: String,
+    val body: String,
+)
+
 /** A deleted poem with its latest version and the book it came from. */
 data class BinPoemRow(
     val id: String,
@@ -114,6 +124,19 @@ interface PoemDao {
     /** Puts a live poem on page [position]. The page must be free: see [parkPositions]. */
     @Query("UPDATE poems SET position = :position WHERE id = :id")
     suspend fun setPosition(id: String, position: Int)
+
+    /** Puts a live poem on page [position] of another book. The page must be free there. */
+    @Query("UPDATE poems SET bookId = :bookId, position = :position WHERE id = :id")
+    suspend fun setBook(id: String, bookId: String, position: Int)
+
+    /** Every live poem of every book on the shelf, with its latest version. */
+    @Query(
+        "SELECT p.id, p.bookId, b.name AS bookName, b.color AS bookColor, v.title, v.body FROM poems p " +
+            "JOIN poem_versions v ON v.poemId = p.id AND $LATEST " +
+            "JOIN books b ON b.id = p.bookId " +
+            "WHERE p.deletedAt IS NULL AND b.deletedAt IS NULL",
+    )
+    suspend fun searchable(): List<SearchRow>
 
     /** Moves the poem to the bin: it gets a deletion time and no page. */
     @Query("UPDATE poems SET deletedAt = :at, position = NULL WHERE id = :id")

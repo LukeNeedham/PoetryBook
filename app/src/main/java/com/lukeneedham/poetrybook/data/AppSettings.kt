@@ -19,6 +19,20 @@ class AppSettings(context: Context) {
             prefs.edit().putString(KEY_SORT, value.name).apply()
         }
 
+    /** How many books the bookshelf shows in a row, [MIN_SHELF_COLUMNS] to [MAX_SHELF_COLUMNS]. */
+    var shelfColumns: Int
+        get() = prefs.getInt(KEY_COLUMNS, DEFAULT_SHELF_COLUMNS).coerceIn(MIN_SHELF_COLUMNS, MAX_SHELF_COLUMNS)
+        set(value) {
+            prefs.edit().putInt(KEY_COLUMNS, value.coerceIn(MIN_SHELF_COLUMNS, MAX_SHELF_COLUMNS)).apply()
+        }
+
+    /** Whether an older version of a poem is shown with its differences from the current poem marked. */
+    var showHistoryChanges: Boolean
+        get() = prefs.getBoolean(KEY_HISTORY_CHANGES, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_HISTORY_CHANGES, value).apply()
+        }
+
     /**
      * The file names (without extension) in page order, as the old folder-based app last saved them
      * for the book folder with [folderKey] (see [PoemFolder.key]).
@@ -40,7 +54,12 @@ class AppSettings(context: Context) {
     /** When the old app last changed the book folder with [documentId], or 0. */
     fun legacyBookUpdated(documentId: String): Long = prefs.getLong("updated|$documentId", 0L)
 
-    private companion object {
-        const val KEY_SORT = "bookSort"
+    companion object {
+        const val MIN_SHELF_COLUMNS = 1
+        const val DEFAULT_SHELF_COLUMNS = 2
+        const val MAX_SHELF_COLUMNS = 4
+        private const val KEY_SORT = "bookSort"
+        private const val KEY_COLUMNS = "shelfColumns"
+        private const val KEY_HISTORY_CHANGES = "showHistoryChanges"
     }
 }

@@ -15,11 +15,24 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import kotlin.math.ln
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import com.lukeneedham.poetrybook.data.AppSettings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.BoxScope
@@ -53,6 +66,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -77,7 +91,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
@@ -104,12 +120,15 @@ private const val NewBook = ""
 fun ShelfScreen(
     books: List<Book>,
     sort: BookSort,
+    columns: Int,
+    onColumnsChange: (Int) -> Unit,
     onSortChange: (BookSort) -> Unit,
     onOpenBook: (Book) -> Unit,
     onCreateBook: (name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
     onEditBook: (book: Book, name: String, color: Int, onDone: (Boolean) -> Unit) -> Unit,
     onDeleteBook: (book: Book, onDone: (Boolean) -> Unit) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = paperColors()
@@ -117,6 +136,8 @@ fun ShelfScreen(
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var failed by rememberSaveable { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
+    val currentColumns = rememberUpdatedState(columns)
+    val currentOnColumnsChange = rememberUpdatedState(onColumnsChange)
     var deleting by remember { mutableStateOf<Book?>(null) }
 
     // Going back from the editor drops what was typed.
@@ -148,6 +169,13 @@ fun ShelfScreen(
                 color = colors.ink,
                 modifier = Modifier.weight(1f),
             )
+            IconButton(onClick = onOpenSearch) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_search),
+                    contentDescription = stringResource(R.string.search),
+                    tint = colors.accent,
+                )
+            }
             SortMenu(sort = sort, onSortChange = onSortChange)
             IconButton(onClick = onOpenSettings) {
                 Icon(
@@ -160,11 +188,11 @@ fun ShelfScreen(
 
         LazyVerticalGrid(
             state = gridState,
-            columns = GridCells.Adaptive(minSize = 150.dp),
+            columns = GridCells.Fixed(columns),
             contentPadding = PaddingValues(24.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().pinchToChangeColumns(currentColumns, currentOnColumnsChange),
         ) {
             items(books, key = { it.id }) { book ->
                 if (editing == book.id) {
@@ -310,25 +338,113 @@ private fun coverTitleStyle(): TextStyle =
 /** Where the label sits in the outlined book. */
 private val NewBookLabelPadding = 16.dp
 
-private val CoverTitlePadding = Modifier.padding(start = 26.dp, end = 14.dp)
+/** Every book is this much taller than it is wide: 1.3 tall for 1 wide. */
+private const val BookHeightPerWidth = 1.3f
 
-/** A book's cover in [color], with its spine; [content] goes on top. */
+/** The width of a book over its height, which is what `aspectRatio` takes. */
+private const val BookAspectRatio = 1f / BookHeightPerWidth
+
+/** The width a cover is drawn at with the default two books to a row, which its sizes are written for. */
+private val ReferenceCoverWidth = 150.dp
+
+/** How much bigger or smaller than the shelf's usual cover one [width] wide is, which its text and padding follow. */
+private fun coverScale(width: Dp): Float = (width / ReferenceCoverWidth).coerceIn(0.2f, 3f)
+
+private fun TextStyle.scaledBy(scale: Float): TextStyle =
+    copy(fontSize = fontSize * scale, lineHeight = lineHeight * scale)
+
+/** Where a cover's name sits, clear of the spine. */
+private fun coverTitlePadding(scale: Float) = Modifier.padding(start = 26.dp * scale, end = 14.dp * scale)
+
+/** Each step of the pinch, in how much the fingers move apart or together, changes the books per row by one. */
+private const val PinchStepZoom = 1.35f
+
+/**
+ * Pinching the shelf changes how many books are in a row: spreading the fingers makes the books
+ * bigger (fewer per row), pinching makes them smaller. A single pinch can go through several
+ * levels, one for every [PinchStepZoom] of zoom, and back again without lifting the fingers.
+ * A single finger is left alone, so the shelf still scrolls.
+ */
+private fun Modifier.pinchToChangeColumns(
+    columns: State<Int>,
+    onColumnsChange: State<(Int) -> Unit>,
+): Modifier =
+    pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val startColumns = columns.value
+            var zoom = 1f
+            do {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (event.changes.count { it.pressed } >= 2) {
+                    zoom *= event.calculateZoom()
+                    event.changes.forEach { it.consume() }
+                    val steps = (ln(zoom) / ln(PinchStepZoom)).toInt()
+                    val target = (startColumns - steps).coerceIn(AppSettings.MIN_SHELF_COLUMNS, AppSettings.MAX_SHELF_COLUMNS)
+                    if (target != columns.value) onColumnsChange.value(target)
+                }
+            } while (event.changes.any { it.pressed })
+        }
+    }
+
+/**
+ * A book's cover in [color], with its spine; [content] goes on top, given how much bigger or
+ * smaller than the shelf's usual cover this one is drawn, so what's on it can be sized to match.
+ */
 @Composable
-private fun CoverBox(color: Color, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    Box(
+private fun CoverBox(
+    color: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.(scale: Float) -> Unit,
+) {
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(0.72f)
+            .aspectRatio(BookAspectRatio)
             .background(color, CoverShape),
     ) {
+        val scale = coverScale(maxWidth)
         // The spine.
         Box(
             Modifier
-                .width(14.dp)
+                .width(14.dp * scale)
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.22f), RoundedCornerShape(topStart = 3.dp, bottomStart = 3.dp)),
         )
-        content()
+        content(scale)
+    }
+}
+
+/**
+ * A book as the shelf shows it: its cover with the name centred on it and, if [showCount], how
+ * many poems it holds. Everything scales with the width the cover is given, so a small one in a
+ * dialog looks like the shelf's, only smaller.
+ */
+@Composable
+internal fun BookCoverFace(book: Book, modifier: Modifier = Modifier, showCount: Boolean = true) {
+    CoverBox(color = coverColor(book), modifier = modifier) { scale ->
+        val padding = coverTitlePadding(scale)
+        Text(
+            text = book.name,
+            style = coverTitleStyle().scaledBy(scale),
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .then(padding),
+        )
+        if (showCount) {
+            val countStyle = MaterialTheme.typography.bodySmall
+            Text(
+                text = pluralStringResource(R.plurals.poem_count, book.poemCount, book.poemCount),
+                style = countStyle.scaledBy(scale),
+                color = CoverTextColor.copy(alpha = 0.75f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .then(padding)
+                    .padding(bottom = 12.dp * scale),
+            )
+        }
     }
 }
 
@@ -336,8 +452,8 @@ private fun CoverBox(color: Color, modifier: Modifier = Modifier, content: @Comp
 private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        CoverBox(
-            color = coverColor(book),
+        BookCoverFace(
+            book = book,
             modifier = Modifier.combinedClickable(
                 onClick = onClick,
                 onLongClick = {
@@ -345,26 +461,7 @@ private fun BookCover(book: Book, onClick: () -> Unit, onEdit: () -> Unit) {
                     onEdit()
                 },
             ),
-        ) {
-            Text(
-                text = book.name,
-                style = coverTitleStyle(),
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .then(CoverTitlePadding),
-            )
-            Text(
-                text = pluralStringResource(R.plurals.poem_count, book.poemCount, book.poemCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = CoverTextColor.copy(alpha = 0.75f),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .then(CoverTitlePadding)
-                    .padding(bottom = 12.dp),
-            )
-        }
+        )
     }
 }
 
@@ -381,18 +478,19 @@ private fun newBookLabelStyle(): TextStyle =
 private fun NewBookTile(onClick: () -> Unit) {
     val colors = paperColors()
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.72f)
-                .border(2.dp, colors.faintInk.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .aspectRatio(BookAspectRatio)
+                .border(2.dp, colors.faintInk.copy(alpha = 0.5f), CoverShape)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
+            val scale = coverScale(maxWidth)
             Text(
                 text = stringResource(R.string.new_book),
-                style = newBookLabelStyle(),
-                modifier = Modifier.padding(NewBookLabelPadding),
+                style = newBookLabelStyle().scaledBy(scale),
+                modifier = Modifier.padding(NewBookLabelPadding * scale),
             )
         }
     }
@@ -414,7 +512,7 @@ private fun NewBookTile(onClick: () -> Unit) {
  * @param onConfirm called with the name and colour; call its `onDone` argument when finished so
  * the buttons can be used again.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun BookEditor(
     initialName: String,
@@ -454,7 +552,6 @@ private fun BookEditor(
         }
     }
 
-    val titleStyle = coverTitleStyle().copy(color = colors.ink)
     val canConfirm = (nameState.text.isNotBlank() || !nameEditable) && !busy
     fun confirm() {
         if (!canConfirm) return
@@ -463,14 +560,18 @@ private fun BookEditor(
         onConfirm(nameState.text.toString().replace('\n', ' '), Color(colorArgb)) { busy = false }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.72f)
+            .aspectRatio(BookAspectRatio)
             .onSizeChanged { bookSize = it }
             .bringIntoViewRequester(bringIntoView)
-            .border(2.dp, colors.faintInk.copy(alpha = 0.5f), RoundedCornerShape(10.dp)),
+            .border(2.dp, colors.faintInk.copy(alpha = 0.5f), CoverShape),
     ) {
+        // The name is the same size here as it will be on the finished cover, whatever the zoom.
+        val scale = coverScale(maxWidth)
+        val titleStyle = coverTitleStyle().copy(color = colors.ink).scaledBy(scale)
+        val titlePadding = coverTitlePadding(scale)
         if (!nameEditable) {
             Text(
                 text = initialName,
@@ -479,17 +580,17 @@ private fun BookEditor(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .then(CoverTitlePadding),
+                    .then(titlePadding),
             )
         } else {
             if (nameState.text.isEmpty()) {
                 // Not part of the field, so it sits exactly where the tile's label does.
                 Text(
                     text = placeholder,
-                    style = newBookLabelStyle(),
+                    style = newBookLabelStyle().scaledBy(scale),
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .padding(NewBookLabelPadding),
+                        .padding(NewBookLabelPadding * scale),
                 )
             }
             BasicTextField(
@@ -507,56 +608,74 @@ private fun BookEditor(
                 },
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .then(CoverTitlePadding)
+                    .then(titlePadding)
                     .focusRequester(focusRequester),
             )
         }
 
+        // The controls shrink with the book, but not below something that can still be tapped.
+        val buttonSize = (48.dp * scale).coerceAtLeast(22.dp)
+        val iconSize = (24.dp * scale).coerceAtLeast(14.dp)
+        val circleSize = (32.dp * scale).coerceAtLeast(16.dp)
+
         if (onDelete != null) {
-            IconButton(onClick = onDelete, modifier = Modifier.align(Alignment.TopEnd)) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_trash),
-                    contentDescription = stringResource(R.string.delete_book),
-                    tint = colors.ink,
-                )
-            }
+            EditorButton(
+                painter = painterResource(R.drawable.ic_trash),
+                description = stringResource(R.string.delete_book),
+                tint = colors.ink,
+                buttonSize = buttonSize,
+                iconSize = iconSize,
+                onClick = onDelete,
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
         }
 
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 4.dp),
+                .fillMaxWidth()
+                .padding(bottom = 4.dp * scale),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (failed) {
                 Text(
                     text = stringResource(R.string.new_book_failed),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.scaledBy(scale),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onCancel) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_close),
-                        contentDescription = stringResource(R.string.cancel),
-                        tint = colors.ink,
-                    )
-                }
+            // On a book too narrow for all three on one line, the controls wrap onto more lines.
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                EditorButton(
+                    painter = painterResource(R.drawable.ic_close),
+                    description = stringResource(R.string.cancel),
+                    tint = colors.ink,
+                    buttonSize = buttonSize,
+                    iconSize = iconSize,
+                    onClick = onCancel,
+                )
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(buttonSize)
+                        .wrapContentSize()
+                        .size(circleSize)
                         .clip(CircleShape)
                         .background(Color(colorArgb))
                         .clickable(onClickLabel = stringResource(R.string.choose_colour)) { pickingColor = true },
                 )
-                IconButton(onClick = ::confirm, enabled = canConfirm) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_check),
-                        contentDescription = stringResource(R.string.done),
-                        tint = colors.ink.copy(alpha = if (canConfirm) 1f else 0.35f),
-                    )
-                }
+                EditorButton(
+                    painter = painterResource(R.drawable.ic_check),
+                    description = stringResource(R.string.done),
+                    tint = colors.ink.copy(alpha = if (canConfirm) 1f else 0.35f),
+                    buttonSize = buttonSize,
+                    iconSize = iconSize,
+                    enabled = canConfirm,
+                    onClick = ::confirm,
+                )
             }
         }
     }
@@ -567,6 +686,29 @@ private fun BookEditor(
             onSelect = { colorArgb = it.toArgb() },
             onDismiss = { pickingColor = false },
         )
+    }
+}
+
+/** An icon button for the book editor, [buttonSize] square with an [iconSize] icon, which can be smaller than the usual 48dp. */
+@Composable
+private fun EditorButton(
+    painter: Painter,
+    description: String,
+    tint: Color,
+    buttonSize: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Box(
+        modifier = modifier
+            .size(buttonSize)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painter = painter, contentDescription = description, tint = tint, modifier = Modifier.size(iconSize))
     }
 }
 
@@ -581,12 +723,15 @@ private fun ShelfPreview() {
                 Book("c", "Misc", 0),
             ),
             sort = BookSort.ALPHABETICAL,
+            columns = 2,
+            onColumnsChange = {},
             onSortChange = {},
             onOpenBook = {},
             onDeleteBook = { _, _ -> },
             onCreateBook = { _, _, _ -> },
             onEditBook = { _, _, _, _ -> },
             onOpenSettings = {},
+            onOpenSearch = {},
         )
     }
 }

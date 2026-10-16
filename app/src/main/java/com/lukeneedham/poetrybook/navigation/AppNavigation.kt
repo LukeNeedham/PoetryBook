@@ -19,11 +19,15 @@ import com.lukeneedham.poetrybook.ui.bin.BinScreen
 import com.lukeneedham.poetrybook.ui.book.BookScreen
 import com.lukeneedham.poetrybook.ui.history.HistoryScreen
 import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
+import com.lukeneedham.poetrybook.ui.search.SearchScreen
 import com.lukeneedham.poetrybook.ui.settings.SettingsScreen
 import com.lukeneedham.poetrybook.ui.shelf.ShelfScreen
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 private const val ScreenTransitionMillis = 300
+
+/** How long a closed book stays in memory, so its screen can still be drawn while it slides away. */
+private const val BookClearDelayMillis = ScreenTransitionMillis + 200L
 
 /** Going back: the screen being left slides away to the right, on top of the one revealed. */
 private fun popTransition(): ContentTransform =
@@ -50,7 +54,7 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
         predictivePopTransitionSpec = { popTransition() },
         onBack = {
             // Leaving a book by going back puts it on the shelf, like the shelf button does.
-            if (backStack.lastOrNull() == Book) viewModel.closeBook()
+            if (backStack.lastOrNull() == Book) viewModel.closeBook(BookClearDelayMillis)
             backStack.removeLastOrNull()
         },
         entryProvider = entryProvider {
@@ -58,6 +62,8 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                 ShelfScreen(
                     books = viewModel.shelfBooks,
                     sort = viewModel.bookSort,
+                    columns = viewModel.shelfColumns,
+                    onColumnsChange = viewModel::changeShelfColumns,
                     onSortChange = viewModel::sortBooks,
                     onOpenBook = { book ->
                         viewModel.openBook(book) { ok -> if (ok) backStack.add(Book) }
@@ -66,6 +72,7 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                     onEditBook = { book, name, color, onDone -> viewModel.editBook(book, name, color, onDone) },
                     onDeleteBook = { book, onDone -> viewModel.deleteBook(book, onDone) },
                     onOpenSettings = { backStack.add(Settings) },
+                    onOpenSearch = { backStack.add(Search) },
                 )
             }
             entry<Book> {
@@ -79,8 +86,9 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                 BookScreen(
                     viewModel = viewModel,
                     onOpenShelf = {
-                        viewModel.closeBook()
-                        backStack.removeLastOrNull()
+                        viewModel.closeBook(BookClearDelayMillis)
+                        // Back to the shelf, even if the book was opened from a search.
+                        while (backStack.size > 1 && backStack.lastOrNull() != Shelf) backStack.removeLastOrNull()
                     },
                     onOpenVersion = { poemId, createdAt -> backStack.add(History(poemId, createdAt)) },
                 )
@@ -91,6 +99,15 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                     poemId = key.poemId,
                     createdAt = key.createdAt,
                     onBack = { backStack.removeLastOrNull() },
+                )
+            }
+            entry<Search> {
+                SearchScreen(
+                    viewModel = viewModel,
+                    onBack = { backStack.removeLastOrNull() },
+                    onOpenPoem = { poem ->
+                        viewModel.openPoem(poem.bookId, poem.id) { ok -> if (ok) backStack.add(Book) }
+                    },
                 )
             }
             entry<Settings> {

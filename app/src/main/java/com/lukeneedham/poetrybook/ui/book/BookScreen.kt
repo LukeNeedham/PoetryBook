@@ -6,6 +6,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.unit.dp
+import com.lukeneedham.poetrybook.ui.shelf.BookCoverFace
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -45,6 +53,7 @@ fun BookScreen(
     var editing by rememberSaveable { mutableStateOf(false) }
     var contentsOpen by rememberSaveable { mutableStateOf(false) }
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
+    var choosingBook by rememberSaveable { mutableStateOf(false) }
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     var notepadOpen by rememberSaveable { mutableStateOf(false) }
     var bodyFocusSignal by rememberSaveable { mutableIntStateOf(0) }
@@ -71,6 +80,15 @@ fun BookScreen(
             notepadOpen = false
             pageState.snapTo(0)
         }
+    }
+
+    // A search result opens its book on the poem it found.
+    val poemToShow = viewModel.poemToShow
+    LaunchedEffect(poemToShow, poems.size) {
+        if (poemToShow == null) return@LaunchedEffect
+        val index = poems.indexOfFirst { it.id == poemToShow }
+        if (index >= 0) pageState.snapTo(index + 1)
+        viewModel.poemToShow = null
     }
 
     BackHandler(enabled = editing) { stopEditing() }
@@ -145,6 +163,9 @@ fun BookScreen(
                     onDelete = if (poem.isBlank) null else {
                         { if (!pageState.isTurning) confirmingDelete = true }
                     },
+                    onMove = if (poem.isBlank) null else {
+                        { if (!pageState.isTurning) choosingBook = true }
+                    },
                     onTitleChange = { viewModel.updateTitle(poem.id, it) },
                     onBodyChange = { viewModel.updateBody(poem.id, it) },
                 )
@@ -200,6 +221,42 @@ fun BookScreen(
                 notepadOpen = false
                 // Back to typing in the poem, if that's what was going on.
                 if (editing) bodyFocusSignal++
+            },
+        )
+    }
+
+    val poemToMove = poemAt(pageState.currentPage)
+    if (choosingBook && poemToMove != null) {
+        val otherBooks = viewModel.shelfBooks.filter { it.id != viewModel.currentBook?.id }
+        AlertDialog(
+            onDismissRequest = { choosingBook = false },
+            title = { Text(stringResource(R.string.move_poem_title)) },
+            text = {
+                if (otherBooks.isEmpty()) {
+                    Text(stringResource(R.string.move_poem_no_books))
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(otherBooks, key = { it.id }) { book ->
+                            BookCoverFace(
+                                book = book,
+                                showCount = false,
+                                modifier = Modifier.clickable {
+                                    choosingBook = false
+                                    stopEditing()
+                                    pageState.snapTo(viewModel.movePoemToBook(poemToMove.id, book.id) + 1)
+                                },
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { choosingBook = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
