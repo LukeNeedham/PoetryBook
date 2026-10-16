@@ -504,7 +504,7 @@ private fun NewBookTile(onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.72f)
-                .border(2.dp, colors.faintInk.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .border(2.dp, colors.faintInk.copy(alpha = 0.5f), CoverShape)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
@@ -588,7 +588,7 @@ private fun BookEditor(
             .aspectRatio(0.72f)
             .onSizeChanged { bookSize = it }
             .bringIntoViewRequester(bringIntoView)
-            .border(2.dp, colors.faintInk.copy(alpha = 0.5f), RoundedCornerShape(10.dp)),
+            .border(2.dp, colors.faintInk.copy(alpha = 0.5f), CoverShape),
     ) {
         // The name is the same size here as it will be on the finished cover, whatever the zoom.
         val scale = coverScale(maxWidth)
