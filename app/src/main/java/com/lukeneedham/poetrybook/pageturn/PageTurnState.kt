@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -14,6 +15,9 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Size
+import com.lukeneedham.common.debug.AnimationSpeed
+import com.lukeneedham.common.debug.scale
+import com.lukeneedham.common.ui.LocalAnimationSpeed
 import com.lukeneedham.poetrybook.pageturn.geometry.Point
 import com.lukeneedham.poetrybook.pageturn.turn.CurlOrigin
 import com.lukeneedham.poetrybook.pageturn.turn.PageTurnPhysicsConfig
@@ -63,6 +67,9 @@ class PageTurnState internal constructor(
         get() = turn != null
 
     internal val physics = PageTurnPhysicsConfig()
+
+    /** The debug animation speed, applied to how long a turn takes to settle. Kept up to date by [rememberPageTurnState]. */
+    internal var animationSpeed: AnimationSpeed = AnimationSpeed.X1
 
     internal fun canTurn(direction: TurnDirection): Boolean = when (direction) {
         TurnDirection.FORWARD -> currentPage < pageCount - 1
@@ -161,11 +168,13 @@ class PageTurnState internal constructor(
         }
         val start = active.pointer
         val end = Point(endX, active.anchorY)
-        val duration = if (target == SettleTarget.COMPLETE) {
-            physics.maxSettleDurationMs
-        } else {
-            (physics.maxSettleDurationMs * 0.72f).roundToInt()
-        }.coerceAtLeast(physics.minSettleDurationMs)
+        val duration = animationSpeed.scale(
+            if (target == SettleTarget.COMPLETE) {
+                physics.maxSettleDurationMs
+            } else {
+                (physics.maxSettleDurationMs * 0.72f).roundToInt()
+            }.coerceAtLeast(physics.minSettleDurationMs),
+        )
         val easing = if (target == SettleTarget.COMPLETE) {
             CubicBezierEasing(0.18f, 0.72f, 0.18f, 1f)
         } else {
@@ -199,11 +208,14 @@ class PageTurnState internal constructor(
 @Composable
 fun rememberPageTurnState(initialPage: Int = 0): PageTurnState {
     val scope = rememberCoroutineScope()
-    return rememberSaveable(
+    val state = rememberSaveable(
         scope,
         saver = Saver(
             save = { it.currentPage },
             restore = { PageTurnState(it, scope) },
         ),
     ) { PageTurnState(initialPage, scope) }
+    val animationSpeed = LocalAnimationSpeed.current
+    SideEffect { state.animationSpeed = animationSpeed }
+    return state
 }

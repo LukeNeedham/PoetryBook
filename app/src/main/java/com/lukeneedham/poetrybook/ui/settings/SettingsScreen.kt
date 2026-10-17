@@ -48,6 +48,8 @@ private sealed interface ImportState {
  *
  * @param onImport copies the books and poems in the picked folder into the app and calls back
  * with what was imported, or null if the folder couldn't be read. The folder isn't kept.
+ * @param onOpenDebug opens the debug page. Null (the default) hides the entry, so release builds
+ * show none.
  */
 @Composable
 fun SettingsScreen(
@@ -55,6 +57,7 @@ fun SettingsScreen(
     onOpenBin: () -> Unit,
     onImport: (Uri, onDone: (ImportResult?) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenDebug: (() -> Unit)? = null,
 ) {
     var importState by remember { mutableStateOf<ImportState>(ImportState.Idle) }
 
@@ -100,6 +103,18 @@ fun SettingsScreen(
                     .padding(horizontal = 8.dp, vertical = 16.dp),
             )
             HorizontalDivider()
+
+            if (onOpenDebug != null) {
+                Text(
+                    text = stringResource(R.string.debug),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenDebug)
+                        .padding(horizontal = 8.dp, vertical = 16.dp),
+                )
+                HorizontalDivider()
+            }
 
             Text(
                 text = stringResource(R.string.import_title),

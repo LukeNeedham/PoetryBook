@@ -49,6 +49,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true // BuildConfig.DEBUG, passed to DebugKit
     }
 
     testOptions {
@@ -65,6 +66,8 @@ ksp {
 }
 
 dependencies {
+    implementation(libs.common)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
 
