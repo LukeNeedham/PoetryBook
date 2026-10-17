@@ -75,6 +75,7 @@
     <string name="import_done">Imported %1$d books and %2$d poems.</string>
 
     <string name="bin">Bin</string>
+    <string name="debug">Debug</string>
     <string name="bin_description">Deleted books and poems wait here until you restore them or delete them for good.</string>
     <string name="bin_books">Books</string>
     <string name="bin_poems">Poems</string>

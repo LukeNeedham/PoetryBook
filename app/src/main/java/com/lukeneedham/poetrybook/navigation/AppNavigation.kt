@@ -6,14 +6,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.common.debug.scale
 import com.lukeneedham.common.ui.CrashesPage
-import com.lukeneedham.common.ui.DebugButton
 import com.lukeneedham.common.ui.DebugPage
 import com.lukeneedham.common.ui.LocalAnimationSpeed
 import com.lukeneedham.common.ui.LogsPage
@@ -57,7 +52,6 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
     // It must outlast the slide, so it follows the scaled duration.
     val bookClearDelayMillis = transitionMillis + BookClearExtraMillis
 
-    Box {
     NavDisplay(
         // Paper behind the screens, so a transition never shows anything else through a gap.
         modifier = Modifier.background(paperColors().paper),
@@ -133,6 +127,8 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                     onBack = { backStack.removeLastOrNull() },
                     onOpenBin = { backStack.add(Bin) },
                     onImport = viewModel::importDirectory,
+                    // Debug builds only: the debug pages are not registered in release.
+                    onOpenDebug = if (BuildConfig.DEBUG) ({ backStack.add(Debug) }) else null,
                 )
             }
             entry<Bin> {
@@ -163,12 +159,4 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
             }
         },
     )
-    // Draws nothing unless DebugKit is enabled (debug builds). Only on the shelf, to stay out of the way.
-    if (BuildConfig.DEBUG && backStack.lastOrNull() == Shelf) {
-        DebugButton(
-            onClick = { backStack.add(Debug) },
-            modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(16.dp),
-        )
-    }
-    }
 }
