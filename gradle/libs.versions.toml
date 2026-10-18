@@ -11,7 +11,7 @@ robolectric = "4.17"
 androidxTest = "1.7.0"
 room = "2.8.5"
 ksp = "2.3.12"
-common = "0.6.0"
+common = "0.7.0"
 
 [libraries]
 common = { module = "com.lukeneedham:common", version.ref = "common" }
