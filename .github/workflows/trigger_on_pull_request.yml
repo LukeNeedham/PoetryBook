@@ -1,5 +1,5 @@
-# Calls the shared PR flow in LukeNeedham/ci-workflows: builds the debug APK on every PR push,
-# comments the download link, and deletes the PR's builds when it closes.
+# Copy to .github/workflows/trigger_on_pull_request.yml in your project.
+# Lines marked CONFIGURE are the ones to adjust per project; leave the rest as is.
 # Setup guide: https://github.com/LukeNeedham/ci-workflows/blob/main/docs/setup.md
 name: On Pull Request
 
@@ -9,7 +9,7 @@ on:
     # `closed` runs the release cleanup, the other types run the build. Keep all four.
     types: [opened, reopened, synchronize, closed]
     branches:
-      - main
+      - main   # CONFIGURE: the branch(es) your PRs target
 
 permissions:
   contents: write       # create the release that holds the APK, and delete it again
@@ -19,21 +19,13 @@ jobs:
   android:
     uses: LukeNeedham/ci-workflows/.github/workflows/android_pr.yml@main
     with:
+      # CONFIGURE (required): path to the APK your build produces, relative to the repo root.
+      # Find it by running the build locally.
       apk-path: app/build/outputs/apk/debug/app-debug.apk
 
-  # Runs the JVM unit tests, which include NoDestructiveMigrationTest (see docs/database.md).
-  # Separate from the build above so a failing test is its own red check on the PR.
-  unit-tests:
-    # `closed` only runs the shared flow's cleanup.
-    if: github.event.action != 'closed'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew testDebugUnitTest
+      # CONFIGURE (optional): the rest are only needed if your project differs. Defaults shown.
+      # gradle-task: assembleDebug
+      # java-version: '17'
+      # java-distribution: zulu
+      # timezone: Europe/Amsterdam       # used for the timestamps in the comment and release
+      comment-header: poetrybook-app-link # change only if a PR needs several APK comments
