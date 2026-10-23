@@ -21,7 +21,7 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
  * The buttons along the top of the book: the bookshelf and a ribbon for the contents on the left,
- * and on the right the poem's history, its notepad, and a pencil to edit it.
+ * and on the right a share button, the poem's history, its notepad, and a pencil to edit it.
  * The history and notepad only work for a poem that has been saved, so they are greyed out for the
  * blank page at the end.
  *
@@ -34,6 +34,8 @@ internal fun BookToolbar(
     editing: Boolean,
     canEdit: Boolean,
     hasPoem: Boolean,
+    canShare: Boolean,
+    onShare: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenNotepad: () -> Unit,
     onOpenShelf: () -> Unit,
@@ -65,6 +67,13 @@ internal fun BookToolbar(
                 )
             }
             Box(Modifier.weight(1f))
+            IconButton(onClick = onShare, enabled = canShare) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_share),
+                    contentDescription = stringResource(R.string.share),
+                    tint = colors.accent.copy(alpha = if (canShare) 1f else 0.35f),
+                )
+            }
             IconButton(onClick = onOpenHistory, enabled = hasPoem) {
                 Icon(
                     painter = painterResource(R.drawable.ic_history),

@@ -1,5 +1,7 @@
 package com.lukeneedham.poetrybook.ui.book
 
+import android.content.Context
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,9 +32,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import com.lukeneedham.poetrybook.R
+import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.pageturn.PageTurnBook
 import com.lukeneedham.poetrybook.pageturn.rememberPageTurnState
 import com.lukeneedham.poetrybook.ui.theme.paperColors
@@ -59,6 +63,7 @@ fun BookScreen(
     var bodyFocusSignal by rememberSaveable { mutableIntStateOf(0) }
     var shownBook by rememberSaveable { mutableStateOf(viewModel.currentBook?.id) }
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
 
     // Page 0 is the generated contents page; the poems follow it.
     fun poemAt(page: Int) = poems.getOrNull(page - 1)
@@ -107,6 +112,8 @@ fun BookScreen(
                 canEdit = currentPoem != null,
                 // Only a poem that has been saved has a history and a notepad.
                 hasPoem = currentPoem != null && viewModel.isStored(currentPoem.id),
+                canShare = currentPoem != null && !currentPoem.isBlank,
+                onShare = { currentPoem?.let { sharePoem(context, it) } },
                 onOpenHistory = {
                     if (!pageState.isTurning) {
                         stopEditing()
@@ -283,4 +290,15 @@ fun BookScreen(
             },
         )
     }
+}
+
+/** Opens the share sheet with the poem's title and full text. */
+private fun sharePoem(context: Context, poem: Poem) {
+    val text = listOf(poem.title.trim(), poem.body.trim()).filter { it.isNotEmpty() }.joinToString("\n\n")
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        if (poem.title.isNotBlank()) putExtra(Intent.EXTRA_SUBJECT, poem.title.trim())
+        putExtra(Intent.EXTRA_TEXT, text)
+    }
+    context.startActivity(Intent.createChooser(send, context.getString(R.string.share_poem)))
 }
