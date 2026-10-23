@@ -44,6 +44,25 @@
         <item quantity="one">+%d line added since</item>
         <item quantity="other">+%d lines added since</item>
     </plurals>
+    <string name="history_first_version">First version</string>
+    <string name="history_title_changed">Title changed</string>
+    <string name="history_no_text_changes">No changes to the text</string>
+    <plurals name="history_lines_added">
+        <item quantity="one">%d line added</item>
+        <item quantity="other">%d lines added</item>
+    </plurals>
+    <plurals name="history_lines_removed">
+        <item quantity="one">%d line removed</item>
+        <item quantity="other">%d lines removed</item>
+    </plurals>
+    <plurals name="history_lines_edited">
+        <item quantity="one">%d line edited</item>
+        <item quantity="other">%d lines edited</item>
+    </plurals>
+    <plurals name="history_lines_moved">
+        <item quantity="one">%d line moved</item>
+        <item quantity="other">%d lines moved</item>
+    </plurals>
     <string name="notepad">Notepad</string>
     <string name="notepad_hint">Ideas, rhymes, metaphors…</string>
 

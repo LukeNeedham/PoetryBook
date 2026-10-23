@@ -15,15 +15,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.PoemVersion
-import com.lukeneedham.poetrybook.ui.theme.PoemFont
+import com.lukeneedham.poetrybook.data.counts
+import com.lukeneedham.poetrybook.data.diffPoems
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -53,7 +54,7 @@ fun HistorySheet(
                         .clickable { onSelect(version) }
                         .padding(horizontal = 24.dp, vertical = 12.dp),
                 ) {
-                    VersionSummary(version, current = index == 0)
+                    VersionSummary(version, previous = list.getOrNull(index + 1), current = index == 0)
                 }
             }
         }
@@ -61,32 +62,44 @@ fun HistorySheet(
 }
 
 @Composable
-private fun VersionSummary(version: PoemVersion, current: Boolean) {
+private fun VersionSummary(version: PoemVersion, previous: PoemVersion?, current: Boolean) {
+    val description = changeDescription(version, previous)
     Column {
         Text(
-            text = formatTimestamp(version.createdAt) +
-                if (current) " · " + stringResource(R.string.history_current) else "",
-            style = MaterialTheme.typography.labelMedium,
+            text = formatTimestamp(version.createdAt),
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
         )
-        Text(
-            text = version.title.ifBlank { stringResource(R.string.untitled) },
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontFamily = PoemFont,
-                fontWeight = FontWeight.SemiBold,
-                fontStyle = if (version.title.isBlank()) FontStyle.Italic else FontStyle.Normal,
-            ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (version.body.isNotBlank()) {
+        if (current) {
             Text(
-                text = version.body.trim(),
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = PoemFont),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                text = stringResource(R.string.history_current),
+                style = MaterialTheme.typography.labelMedium,
             )
         }
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
+}
+
+/** What [version] changed compared with the [previous] (older) one, e.g. "2 lines added, 1 line removed". */
+@Composable
+private fun changeDescription(version: PoemVersion, previous: PoemVersion?): String {
+    if (previous == null) return stringResource(R.string.history_first_version)
+    val counts = remember(version.body, previous.body) {
+        diffPoems(previous.body, version.body).counts
+    }
+    val resources = LocalContext.current.resources
+    val parts = buildList {
+        if (counts.added > 0) add(resources.getQuantityString(R.plurals.history_lines_added, counts.added, counts.added))
+        if (counts.removed > 0) add(resources.getQuantityString(R.plurals.history_lines_removed, counts.removed, counts.removed))
+        if (counts.edited > 0) add(resources.getQuantityString(R.plurals.history_lines_edited, counts.edited, counts.edited))
+        if (counts.moved > 0) add(resources.getQuantityString(R.plurals.history_lines_moved, counts.moved, counts.moved))
+        if (version.title != previous.title) add(stringResource(R.string.history_title_changed))
+    }
+    return if (parts.isEmpty()) stringResource(R.string.history_no_text_changes) else parts.joinToString(", ")
 }

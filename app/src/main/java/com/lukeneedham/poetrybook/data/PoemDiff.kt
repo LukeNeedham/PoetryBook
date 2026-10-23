@@ -54,6 +54,21 @@ data class VersionDiff(
         }
 }
 
+/** How many lines of each kind changed between two texts, as counted by [VersionDiff.counts]. */
+data class ChangeCounts(val added: Int, val removed: Int, val edited: Int, val moved: Int)
+
+/** Counts of the lines added, removed, edited and moved, going from the diffed older text to the newer one. */
+val VersionDiff.counts: ChangeCounts
+    get() {
+        val lines = stanzas.flatMap { it.lines }
+        return ChangeCounts(
+            added = addedAtStart + lines.sumOf { it.addedAfter },
+            removed = lines.count { it.change == LineChange.REMOVED },
+            edited = lines.count { it.change == LineChange.EDITED },
+            moved = lines.count { it.change == LineChange.MOVED },
+        )
+    }
+
 /** A line has to share at least this much of its words with another to count as an edit of it. */
 private const val MinSimilarity = 0.5f
 
