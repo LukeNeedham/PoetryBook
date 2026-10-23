@@ -24,4 +24,16 @@ class WordChangesTest {
     fun `a word in another place is moved`() {
         assertEquals(WordChanges(added = 0, removed = 0, moved = 1), wordChanges("red rose blooms", "rose blooms red"))
     }
+
+    @Test
+    fun `only punctuation or spacing changing is formatting`() {
+        val change = changeBetween(PoemVersion(1, "T", "the red rose"), PoemVersion(2, "T", "The red,\nrose"))
+        assertEquals(VersionChange(WordChanges(0, 0, 0), titleChanged = false, formatting = true), change)
+    }
+
+    @Test
+    fun `a new title alone is not formatting`() {
+        val change = changeBetween(PoemVersion(1, "A", "rose"), PoemVersion(2, "B", "rose"))
+        assertEquals(VersionChange(WordChanges(0, 0, 0), titleChanged = true, formatting = false), change)
+    }
 }

@@ -124,6 +124,25 @@ fun wordChanges(older: String, newer: String): WordChanges {
     return WordChanges(added = added, removed = leftOver.values.sum(), moved = moved)
 }
 
+/**
+ * What a version changed compared with the one before it. [words] ignore case, punctuation and
+ * spacing, so [formatting] is true when only those differ.
+ */
+data class VersionChange(val words: WordChanges, val titleChanged: Boolean, val formatting: Boolean)
+
+/** A saved version with what it changed from the version before it (null for the first version). */
+data class HistoryEntry(val version: PoemVersion, val change: VersionChange?)
+
+/** What [version] changed compared with [previous], the version saved just before it. */
+fun changeBetween(previous: PoemVersion, version: PoemVersion): VersionChange {
+    val words = wordChanges(previous.body, version.body)
+    return VersionChange(
+        words = words,
+        titleChanged = version.title != previous.title,
+        formatting = words == WordChanges(0, 0, 0) && version.body != previous.body,
+    )
+}
+
 /** A line has to share at least this much of its words with another to count as an edit of it. */
 private const val MinSimilarity = 0.5f
 

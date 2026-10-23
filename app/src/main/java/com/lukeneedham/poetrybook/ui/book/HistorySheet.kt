@@ -13,47 +13,45 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
+import com.lukeneedham.poetrybook.data.HistoryEntry
 import com.lukeneedham.poetrybook.data.PoemVersion
-import com.lukeneedham.poetrybook.data.wordChanges
-import kotlinx.coroutines.flow.Flow
+import com.lukeneedham.poetrybook.data.VersionChange
 
 /**
  * The poem's history in a bottom sheet: every saved version, newest first, each with when it was
- * saved, its title and the first two lines of its text. Picking one calls [onSelect].
+ * saved and a summary of what it changed from the version before. The [entries] come ready-made
+ * from [PoemBookViewModel.trackHistory], so nothing is compared when the sheet opens. Picking one
+ * calls [onSelect].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistorySheet(
-    versions: Flow<List<PoemVersion>>,
+    entries: List<HistoryEntry>,
     onSelect: (PoemVersion) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        val list by versions.collectAsState(initial = emptyList())
         Text(
             text = stringResource(R.string.history),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
         )
         LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding()) {
-            itemsIndexed(list, key = { _, version -> version.createdAt }) { index, version ->
+            itemsIndexed(entries, key = { _, entry -> entry.version.createdAt }) { index, entry ->
                 if (index > 0) HorizontalDivider()
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .clickable { onSelect(version) }
+                        .clickable { onSelect(entry.version) }
                         .padding(horizontal = 24.dp, vertical = 12.dp),
                 ) {
-                    VersionSummary(version, previous = list.getOrNull(index + 1), current = index == 0)
+                    VersionSummary(entry, current = index == 0)
                 }
             }
         }
@@ -61,11 +59,10 @@ fun HistorySheet(
 }
 
 @Composable
-private fun VersionSummary(version: PoemVersion, previous: PoemVersion?, current: Boolean) {
-    val description = changeDescription(version, previous)
+private fun VersionSummary(entry: HistoryEntry, current: Boolean) {
     Column {
         Text(
-            text = formatTimestamp(version.createdAt),
+            text = formatTimestamp(entry.version.createdAt),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -76,7 +73,7 @@ private fun VersionSummary(version: PoemVersion, previous: PoemVersion?, current
             )
         }
         Text(
-            text = description,
+            text = changeDescription(entry.change),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 2,
@@ -85,17 +82,18 @@ private fun VersionSummary(version: PoemVersion, previous: PoemVersion?, current
     }
 }
 
-/** What [version] changed compared with the [previous] (older) one, e.g. "5 words added, 2 words removed". */
+/** [change] in words, e.g. "5 words added, 2 words removed"; null is the first version. */
 @Composable
-private fun changeDescription(version: PoemVersion, previous: PoemVersion?): String {
-    if (previous == null) return stringResource(R.string.history_first_version)
-    val changes = remember(version.body, previous.body) { wordChanges(previous.body, version.body) }
+private fun changeDescription(change: VersionChange?): String {
+    if (change == null) return stringResource(R.string.history_first_version)
     val resources = LocalContext.current.resources
+    val words = change.words
     val parts = buildList {
-        if (changes.added > 0) add(resources.getQuantityString(R.plurals.history_words_added, changes.added, changes.added))
-        if (changes.removed > 0) add(resources.getQuantityString(R.plurals.history_words_removed, changes.removed, changes.removed))
-        if (changes.moved > 0) add(resources.getQuantityString(R.plurals.history_words_moved, changes.moved, changes.moved))
-        if (version.title != previous.title) add(stringResource(R.string.history_title_changed))
+        if (words.added > 0) add(resources.getQuantityString(R.plurals.history_words_added, words.added, words.added))
+        if (words.removed > 0) add(resources.getQuantityString(R.plurals.history_words_removed, words.removed, words.removed))
+        if (words.moved > 0) add(resources.getQuantityString(R.plurals.history_words_moved, words.moved, words.moved))
+        if (change.formatting) add(stringResource(R.string.history_formatting_changed))
+        if (change.titleChanged) add(stringResource(R.string.history_title_changed))
     }
     return if (parts.isEmpty()) stringResource(R.string.history_no_text_changes) else parts.joinToString(", ")
 }

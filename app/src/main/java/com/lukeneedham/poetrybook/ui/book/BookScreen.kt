@@ -202,10 +202,14 @@ fun BookScreen(
         )
     }
 
+    // Work out the history of the poem on show as soon as it is stored, so the sheet opens ready.
     val historyPoem = poemAt(pageState.currentPage)
+    val historyPoemId = historyPoem?.id?.takeIf { viewModel.isStored(it) }
+    LaunchedEffect(historyPoemId) { historyPoemId?.let { viewModel.trackHistory(it) } }
+
     if (historyOpen && historyPoem != null) {
         HistorySheet(
-            versions = remember(historyPoem.id) { viewModel.history(historyPoem.id) },
+            entries = viewModel.loadedHistory(historyPoem.id).orEmpty(),
             onSelect = { version ->
                 historyOpen = false
                 onOpenVersion(historyPoem.id, version.createdAt)

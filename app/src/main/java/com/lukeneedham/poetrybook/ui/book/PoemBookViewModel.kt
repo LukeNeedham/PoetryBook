@@ -15,11 +15,13 @@ import com.lukeneedham.poetrybook.data.BinPoem
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
 import com.lukeneedham.poetrybook.data.DirectoryImporter
+import com.lukeneedham.poetrybook.data.HistoryEntry
 import com.lukeneedham.poetrybook.data.ImportResult
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.data.PoemStore
 import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.PoemVersion
+import com.lukeneedham.poetrybook.data.changeBetween
 import com.lukeneedham.poetrybook.data.db.PoetryDatabase
 import com.lukeneedham.poetrybook.data.sortedFor
 import com.lukeneedham.poetrybook.data.withOneBlankLast
@@ -315,6 +317,28 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun history(poemId: String): Flow<List<PoemVersion>> = store.observeHistory(poemId)
+
+    /** Each poem's history with the changes worked out, kept for as long as the app is open. */
+    private val historyCache = mutableStateMapOf<String, List<HistoryEntry>>()
+
+    /** The poem's history if [trackHistory] has read it, else null. */
+    fun loadedHistory(poemId: String): List<HistoryEntry>? = historyCache[poemId]
+
+    /**
+     * Keeps the poem's history in memory, newest first, until cancelled. A version never changes, so
+     * its comparison with the one before it is worked out once; a new version only adds one.
+     */
+    suspend fun trackHistory(poemId: String) {
+        store.observeHistory(poemId).collect { versions ->
+            val known = historyCache[poemId].orEmpty().associateBy { it.version.createdAt }
+            historyCache[poemId] = withContext(Dispatchers.Default) {
+                versions.mapIndexed { index, version ->
+                    known[version.createdAt]
+                        ?: HistoryEntry(version, versions.getOrNull(index + 1)?.let { changeBetween(it, version) })
+                }
+            }
+        }
+    }
 
     suspend fun version(poemId: String, createdAt: Long): PoemVersion? = locked { store.version(poemId, createdAt) }
 

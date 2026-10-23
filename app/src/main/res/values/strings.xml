@@ -45,6 +45,7 @@
         <item quantity="other">+%d lines added since</item>
     </plurals>
     <string name="history_first_version">First version</string>
+    <string name="history_formatting_changed">Punctuation or spacing changed</string>
     <string name="history_title_changed">Title changed</string>
     <string name="history_no_text_changes">No changes to the text</string>
     <plurals name="history_words_added">
