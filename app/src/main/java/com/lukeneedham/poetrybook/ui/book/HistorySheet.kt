@@ -23,8 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.PoemVersion
-import com.lukeneedham.poetrybook.data.counts
-import com.lukeneedham.poetrybook.data.diffPoems
+import com.lukeneedham.poetrybook.data.wordChanges
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -86,19 +85,16 @@ private fun VersionSummary(version: PoemVersion, previous: PoemVersion?, current
     }
 }
 
-/** What [version] changed compared with the [previous] (older) one, e.g. "2 lines added, 1 line removed". */
+/** What [version] changed compared with the [previous] (older) one, e.g. "5 words added, 2 words removed". */
 @Composable
 private fun changeDescription(version: PoemVersion, previous: PoemVersion?): String {
     if (previous == null) return stringResource(R.string.history_first_version)
-    val counts = remember(version.body, previous.body) {
-        diffPoems(previous.body, version.body).counts
-    }
+    val changes = remember(version.body, previous.body) { wordChanges(previous.body, version.body) }
     val resources = LocalContext.current.resources
     val parts = buildList {
-        if (counts.added > 0) add(resources.getQuantityString(R.plurals.history_lines_added, counts.added, counts.added))
-        if (counts.removed > 0) add(resources.getQuantityString(R.plurals.history_lines_removed, counts.removed, counts.removed))
-        if (counts.edited > 0) add(resources.getQuantityString(R.plurals.history_lines_edited, counts.edited, counts.edited))
-        if (counts.moved > 0) add(resources.getQuantityString(R.plurals.history_lines_moved, counts.moved, counts.moved))
+        if (changes.added > 0) add(resources.getQuantityString(R.plurals.history_words_added, changes.added, changes.added))
+        if (changes.removed > 0) add(resources.getQuantityString(R.plurals.history_words_removed, changes.removed, changes.removed))
+        if (changes.moved > 0) add(resources.getQuantityString(R.plurals.history_words_moved, changes.moved, changes.moved))
         if (version.title != previous.title) add(stringResource(R.string.history_title_changed))
     }
     return if (parts.isEmpty()) stringResource(R.string.history_no_text_changes) else parts.joinToString(", ")

@@ -54,20 +54,75 @@ data class VersionDiff(
         }
 }
 
-/** How many lines of each kind changed between two texts, as counted by [VersionDiff.counts]. */
-data class ChangeCounts(val added: Int, val removed: Int, val edited: Int, val moved: Int)
+/** How many words were added, removed and moved between two texts, as counted by [wordChanges]. */
+data class WordChanges(val added: Int, val removed: Int, val moved: Int)
 
-/** Counts of the lines added, removed, edited and moved, going from the diffed older text to the newer one. */
-val VersionDiff.counts: ChangeCounts
-    get() {
-        val lines = stanzas.flatMap { it.lines }
-        return ChangeCounts(
-            added = addedAtStart + lines.sumOf { it.addedAfter },
-            removed = lines.count { it.change == LineChange.REMOVED },
-            edited = lines.count { it.change == LineChange.EDITED },
-            moved = lines.count { it.change == LineChange.MOVED },
-        )
+private const val MaxWordCells = 4_000_000
+
+private val ChangedWordPattern = Regex("[\\p{L}\\p{N}_']+")
+
+/**
+ * Compares the words of [older] and [newer] (ignoring case, punctuation and spacing). Words in a
+ * longest common run, in order, are unchanged. Of the rest, words that appear on both sides have
+ * moved; the others were removed (only in [older]) or added (only in [newer]). A word that was
+ * changed into another counts as one removed and one added.
+ */
+fun wordChanges(older: String, newer: String): WordChanges {
+    val a = ChangedWordPattern.findAll(older).map { it.value.lowercase() }.toList()
+    val b = ChangedWordPattern.findAll(newer).map { it.value.lowercase() }.toList()
+
+    var prefix = 0
+    while (prefix < a.size && prefix < b.size && a[prefix] == b[prefix]) prefix++
+    var suffix = 0
+    while (suffix < a.size - prefix && suffix < b.size - prefix &&
+        a[a.size - 1 - suffix] == b[b.size - 1 - suffix]
+    ) {
+        suffix++
     }
+    val x = a.subList(prefix, a.size - suffix)
+    val y = b.subList(prefix, b.size - suffix)
+
+    val keptA = BooleanArray(x.size)
+    val keptB = BooleanArray(y.size)
+    if (x.isNotEmpty() && y.isNotEmpty() && x.size.toLong() * y.size <= MaxWordCells) {
+        val lcs = Array(x.size + 1) { IntArray(y.size + 1) }
+        for (i in x.size - 1 downTo 0) {
+            for (j in y.size - 1 downTo 0) {
+                lcs[i][j] = if (x[i] == y[j]) lcs[i + 1][j + 1] + 1 else maxOf(lcs[i + 1][j], lcs[i][j + 1])
+            }
+        }
+        var i = 0
+        var j = 0
+        while (i < x.size && j < y.size) {
+            if (x[i] == y[j]) {
+                keptA[i] = true
+                keptB[j] = true
+                i++
+                j++
+            } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+                i++
+            } else {
+                j++
+            }
+        }
+    }
+
+    val leftOver = HashMap<String, Int>()
+    x.forEachIndexed { index, word -> if (!keptA[index]) leftOver.merge(word, 1, Int::plus) }
+    var moved = 0
+    var added = 0
+    y.forEachIndexed { index, word ->
+        if (keptB[index]) return@forEachIndexed
+        val count = leftOver[word] ?: 0
+        if (count > 0) {
+            moved++
+            leftOver[word] = count - 1
+        } else {
+            added++
+        }
+    }
+    return WordChanges(added = added, removed = leftOver.values.sum(), moved = moved)
+}
 
 /** A line has to share at least this much of its words with another to count as an edit of it. */
 private const val MinSimilarity = 0.5f
