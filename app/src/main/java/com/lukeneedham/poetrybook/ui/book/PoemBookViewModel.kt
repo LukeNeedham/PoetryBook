@@ -15,11 +15,15 @@ import com.lukeneedham.poetrybook.data.BinPoem
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
 import com.lukeneedham.poetrybook.data.DirectoryImporter
+import com.lukeneedham.poetrybook.data.HistoryEntry
+import com.lukeneedham.poetrybook.data.HistoryList
+import com.lukeneedham.poetrybook.data.VersionChange
 import com.lukeneedham.poetrybook.data.ImportResult
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.data.PoemStore
 import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.PoemVersion
+import com.lukeneedham.poetrybook.data.changeBetween
 import com.lukeneedham.poetrybook.data.db.PoetryDatabase
 import com.lukeneedham.poetrybook.data.sortedFor
 import com.lukeneedham.poetrybook.data.withOneBlankLast
@@ -34,6 +38,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
+
+/** How many versions of a poem's history get their changes worked out at a time. */
+const val HistoryChunkSize = 10
 
 /**
  * Owns the shelf and the book being read. Books and poems live in the database; this keeps the
@@ -315,6 +322,67 @@ class PoemBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun history(poemId: String): Flow<List<PoemVersion>> = store.observeHistory(poemId)
+
+    /** Every version of each poem being tracked, newest first. */
+    private val historyVersions = HashMap<String, List<PoemVersion>>()
+
+    /** The changes worked out so far, per poem and version time; a version's never change. */
+    private val historyChanges = HashMap<String, HashMap<Long, VersionChange?>>()
+
+    /** What the history sheet shows: each poem's versions that have their changes worked out. */
+    private val historyCache = mutableStateMapOf<String, HistoryList>()
+
+    /** Working out changes happens one job at a time. */
+    private val historyLock = Mutex()
+
+    /** The poem's history if [trackHistory] has read it, else null. */
+    fun loadedHistory(poemId: String): HistoryList? = historyCache[poemId]
+
+    /**
+     * Keeps the poem's history up to date in memory until cancelled. Only the newest
+     * [HistoryChunkSize] versions get their changes worked out at once, so the history is ready fast;
+     * the next chunk follows straight away, and the rest when [loadMoreHistory] asks for it.
+     */
+    suspend fun trackHistory(poemId: String) {
+        var first = true
+        store.observeHistory(poemId).collect { versions ->
+            historyVersions[poemId] = versions
+            val have = historyCache[poemId]?.entries?.size ?: 0
+            val target = maxOf(have, HistoryChunkSize)
+            computeHistory(poemId, target)
+            if (first && have == 0) computeHistory(poemId, target + HistoryChunkSize)
+            first = false
+        }
+    }
+
+    /** Works out the changes of the newest [count] versions of the poem, if that hasn't been done. */
+    fun loadMoreHistory(poemId: String, count: Int) {
+        scope.launch { computeHistory(poemId, count) }
+    }
+
+    private suspend fun computeHistory(poemId: String, count: Int) = historyLock.withLock {
+        val versions = historyVersions[poemId] ?: return@withLock
+        val target = count.coerceAtMost(versions.size)
+        val cached = historyCache[poemId]
+        if (cached != null && cached.total == versions.size && cached.entries.size >= target &&
+            cached.entries.map { it.version.createdAt } == versions.take(cached.entries.size).map { it.createdAt }
+        ) {
+            return@withLock
+        }
+        val changes = historyChanges.getOrPut(poemId) { HashMap() }
+        val entries = withContext(Dispatchers.Default) {
+            versions.take(target).mapIndexed { index, version ->
+                val change = if (version.createdAt in changes) {
+                    changes[version.createdAt]
+                } else {
+                    versions.getOrNull(index + 1)?.let { changeBetween(it, version) }
+                        .also { changes[version.createdAt] = it }
+                }
+                HistoryEntry(version, change)
+            }
+        }
+        historyCache[poemId] = HistoryList(entries, versions.size)
+    }
 
     suspend fun version(poemId: String, createdAt: Long): PoemVersion? = locked { store.version(poemId, createdAt) }
 

@@ -81,6 +81,9 @@ fun HistoryScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Normally the book screen has done this already, and the cached comparisons are reused.
+    LaunchedEffect(poemId) { viewModel.trackHistory(poemId) }
+
     val colors = paperColors()
     val versionsFlow = remember(poemId) { viewModel.history(poemId) }
     val versions by versionsFlow.collectAsState<List<PoemVersion>, List<PoemVersion>?>(initial = null)
@@ -166,7 +169,7 @@ private fun HistoryPager(
                         text = if (pagerState.currentPage == 0) {
                             stringResource(R.string.history_current)
                         } else {
-                            stringResource(R.string.history_position, pagerState.currentPage + 1, versions.size)
+                            stringResource(R.string.history_position, versions.size - pagerState.currentPage, versions.size)
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = colors.faintInk,
@@ -216,7 +219,8 @@ private fun HistoryPager(
 
     if (historyOpen) {
         HistorySheet(
-            versions = remember(poemId) { viewModel.history(poemId) },
+            history = viewModel.loadedHistory(poemId),
+            onLoadMore = { count -> viewModel.loadMoreHistory(poemId, count) },
             onSelect = { version ->
                 historyOpen = false
                 val index = versions.indexOfFirst { it.createdAt == version.createdAt }
