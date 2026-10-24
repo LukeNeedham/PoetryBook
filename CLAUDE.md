@@ -10,8 +10,6 @@
 - The `Debug`, `Logs` and `Crashes` routes (`navigation/Destinations.kt`) are registered only when `BuildConfig.DEBUG`; the "Debug" row on the Settings screen (`ui/settings/SettingsScreen.kt`, shown only in debug builds) opens them. The shared `DebugPage` shows only the library's own things and has no slot for app-specific tools; the app has none yet. When it gets some, make an app debug page for them with a button that opens the library's page.
 - The library comes from the Maven repo in `settings.gradle.kts`; change its version in `gradle/libs.versions.toml`.
 
-Before starting work, check that `.claude/skills/lukeneedham-conventions` matches `skills/lukeneedham-conventions` on `main` of `LukeNeedham/ci-workflows`; if not, copy it over and include that in this work's PR. See that repo's `docs/skill.md`.
-
 <!-- ci-workflows:begin (managed by LukeNeedham/ci-workflows, do not edit) -->
 - `.claude/skills/lukeneedham-conventions` and the callers `trigger_on_pull_request.yml`, `build_main.yml`, `delete_prereleases.yml`, `release.yml` in `.github/workflows/` are kept in sync from
   `LukeNeedham/ci-workflows` by CI, which keeps one PR titled "Sync from ci-workflows" open when they
