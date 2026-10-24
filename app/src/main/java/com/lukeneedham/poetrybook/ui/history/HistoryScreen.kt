@@ -219,7 +219,8 @@ private fun HistoryPager(
 
     if (historyOpen) {
         HistorySheet(
-            entries = viewModel.loadedHistory(poemId).orEmpty(),
+            history = viewModel.loadedHistory(poemId),
+            onLoadMore = { count -> viewModel.loadMoreHistory(poemId, count) },
             onSelect = { version ->
                 historyOpen = false
                 val index = versions.indexOfFirst { it.createdAt == version.createdAt }

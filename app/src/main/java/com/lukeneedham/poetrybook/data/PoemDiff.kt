@@ -133,6 +133,12 @@ data class VersionChange(val words: WordChanges, val titleChanged: Boolean, val 
 /** A saved version with what it changed from the version before it (null for the first version). */
 data class HistoryEntry(val version: PoemVersion, val change: VersionChange?)
 
+/**
+ * A poem's history as far as it has been worked out: the newest versions with their changes, out of
+ * [total] versions in all.
+ */
+data class HistoryList(val entries: List<HistoryEntry>, val total: Int)
+
 /** What [version] changed compared with [previous], the version saved just before it. */
 fun changeBetween(previous: PoemVersion, version: PoemVersion): VersionChange {
     val words = wordChanges(previous.body, version.body)

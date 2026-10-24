@@ -1,18 +1,25 @@
 package com.lukeneedham.poetrybook.ui.book
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -20,19 +27,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.HistoryEntry
+import com.lukeneedham.poetrybook.data.HistoryList
 import com.lukeneedham.poetrybook.data.PoemVersion
 import com.lukeneedham.poetrybook.data.VersionChange
 
+/** The list asks for more when its last visible row is this close to the end of what is ready. */
+private const val PrefetchDistance = 3
+
 /**
  * The poem's history in a bottom sheet: every saved version, newest first, each with when it was
- * saved and a summary of what it changed from the version before. The [entries] come ready-made
- * from [PoemBookViewModel.trackHistory], so nothing is compared when the sheet opens. Picking one
- * calls [onSelect].
+ * saved and a summary of what it changed from the version before. The [history] comes from
+ * [PoemBookViewModel.trackHistory] with only the newest versions compared; a spinner shows until
+ * the first of them are ready, and [onLoadMore] asks for more (a total row count to have ready)
+ * when the list is scrolled near the end of what is ready. Picking one calls [onSelect].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistorySheet(
-    entries: List<HistoryEntry>,
+    history: HistoryList?,
+    onLoadMore: (count: Int) -> Unit,
     onSelect: (PoemVersion) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -42,7 +55,20 @@ fun HistorySheet(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
         )
-        LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding()) {
+        if (history == null || (history.entries.isEmpty() && history.total > 0)) {
+            LoadingRow(Modifier.padding(vertical = 32.dp).navigationBarsPadding())
+            return@ModalBottomSheet
+        }
+        val entries = history.entries
+        val listState = rememberLazyListState()
+        LaunchedEffect(listState, entries.size, history.total) {
+            if (entries.size >= history.total) return@LaunchedEffect
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
+                .collect { last ->
+                    if (last >= entries.size - PrefetchDistance) onLoadMore(entries.size + HistoryChunkSize)
+                }
+        }
+        LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding(), state = listState) {
             itemsIndexed(entries, key = { _, entry -> entry.version.createdAt }) { index, entry ->
                 if (index > 0) HorizontalDivider()
                 Column(
@@ -54,7 +80,17 @@ fun HistorySheet(
                     VersionSummary(entry, current = index == 0)
                 }
             }
+            if (entries.size < history.total) {
+                item(key = "loading") { LoadingRow(Modifier.padding(vertical = 16.dp)) }
+            }
         }
+    }
+}
+
+@Composable
+private fun LoadingRow(modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
     }
 }
 

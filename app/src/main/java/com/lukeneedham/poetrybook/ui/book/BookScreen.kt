@@ -209,7 +209,8 @@ fun BookScreen(
 
     if (historyOpen && historyPoem != null) {
         HistorySheet(
-            entries = viewModel.loadedHistory(historyPoem.id).orEmpty(),
+            history = viewModel.loadedHistory(historyPoem.id),
+            onLoadMore = { count -> viewModel.loadMoreHistory(historyPoem.id, count) },
             onSelect = { version ->
                 historyOpen = false
                 onOpenVersion(historyPoem.id, version.createdAt)
