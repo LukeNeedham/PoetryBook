@@ -61,7 +61,7 @@ fun BookPage(
         currentBookId = viewModel.currentBook?.id,
         shelfBooks = viewModel.shelfBooks,
         poemToShow = viewModel.poemToShow,
-        onPoemShown = { onPoemShown() },
+        onPoemShown = { viewModel.poemToShow = null },
         isStored = viewModel::isStored,
         loadedHistory = viewModel::loadedHistory,
         loadedNotes = viewModel::loadedNotes,

@@ -58,7 +58,7 @@ fun BinPoemPage(viewModel: PoemBookViewModel, poemId: String, onBack: () -> Unit
         poem = poem,
         onBack = onBack,
         onRestore = { viewModel.restorePoem(poem.id) },
-        onDeleteForever = { onDeleteForever() },
+        onDeleteForever = { viewModel.deletePoemForever(poem.id) },
     )
 }
 

@@ -100,7 +100,7 @@ fun HistoryPage(
         currentPoem = viewModel.poems.firstOrNull { it.id == poemId },
         showChanges = viewModel.showHistoryChanges,
         onShowChangesChange = viewModel::changeShowHistoryChanges,
-        history = history,
+        history = viewModel.loadedHistory(poemId),
         onLoadMoreHistory = { count -> viewModel.loadMoreHistory(poemId, count) },
         onSaveNotes = viewModel::saveNotes,
         onBack = onBack,
