@@ -20,7 +20,7 @@ developer:
     destructive are in [docs/database.md](docs/database.md).
 
     One `PoemBookViewModel` owns the shelf, the open book and the bin, and is passed to every page; the pages are
-    `XPage` plus a stateless `XPageContent`. The page turn is in `pageturn/` (`PageTurnBook` shows composable pages one
+    `XPage` plus a stateless `XPageContent`, each in its own file. The page turn is in `pageturn/` (`PageTurnBook` shows composable pages one
     at a time and curls between them; `geometry/` and `turn/` are the framework-free curl maths from
     [TurnThePage](https://github.com/LukeNeedham/TurnThePage)). Import (`DirectoryImporter`) reads a folder through
     the Storage Access Framework: every subfolder is a book and every `.txt` file in it a poem, with loose files going

@@ -46,7 +46,7 @@ private fun popTransition(transitionMillis: Int): ContentTransform =
 
 @Composable
 fun AppNavigation(viewModel: PoemBookViewModel) {
-    val backStack = rememberNavBackStack(ShelfNavKey)
+    val backStack = rememberNavBackStack(Route.Shelf)
     val transitionMillis = LocalAnimationSpeed.current.scale(ScreenTransitionMillis)
     // How long a closed book stays in memory, so its screen can still be drawn while it slides away.
     // It must outlast the slide, so it follows the scaled duration.
@@ -66,23 +66,23 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
         predictivePopTransitionSpec = { popTransition(transitionMillis) },
         onBack = {
             // Leaving a book by going back puts it on the shelf, like the shelf button does.
-            if (backStack.lastOrNull() == BookNavKey) viewModel.closeBook(bookClearDelayMillis)
+            if (backStack.lastOrNull() == Route.Book) viewModel.closeBook(bookClearDelayMillis)
             backStack.removeLastOrNull()
         },
         entryProvider = entryProvider {
-            entry<ShelfNavKey> {
+            entry<Route.Shelf> {
                 ShelfPage(
                     viewModel = viewModel,
-                    onOpenBook = { backStack.add(BookNavKey) },
-                    onOpenSettings = { backStack.add(SettingsNavKey) },
-                    onOpenSearch = { backStack.add(SearchNavKey) },
+                    onOpenBook = { backStack.add(Route.Book) },
+                    onOpenSettings = { backStack.add(Route.Settings) },
+                    onOpenSearch = { backStack.add(Route.Search) },
                 )
             }
-            entry<BookNavKey> {
+            entry<Route.Book> {
                 // After the app was killed the back stack comes back but the open book doesn't.
                 if (viewModel.currentBook == null) {
                     LaunchedEffect(Unit) {
-                        if (backStack.lastOrNull() == BookNavKey) backStack.removeLastOrNull()
+                        if (backStack.lastOrNull() == Route.Book) backStack.removeLastOrNull()
                     }
                     return@entry
                 }
@@ -91,12 +91,12 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                     onOpenShelf = {
                         viewModel.closeBook(bookClearDelayMillis)
                         // Back to the shelf, even if the book was opened from a search.
-                        while (backStack.size > 1 && backStack.lastOrNull() != ShelfNavKey) backStack.removeLastOrNull()
+                        while (backStack.size > 1 && backStack.lastOrNull() != Route.Shelf) backStack.removeLastOrNull()
                     },
-                    onOpenVersion = { poemId, createdAt -> backStack.add(HistoryNavKey(poemId, createdAt)) },
+                    onOpenVersion = { poemId, createdAt -> backStack.add(Route.History(poemId, createdAt)) },
                 )
             }
-            entry<HistoryNavKey> { key ->
+            entry<Route.History> { key ->
                 HistoryPage(
                     viewModel = viewModel,
                     poemId = key.poemId,
@@ -104,49 +104,49 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
                     onBack = { backStack.removeLastOrNull() },
                 )
             }
-            entry<SearchNavKey> {
+            entry<Route.Search> {
                 SearchPage(
                     viewModel = viewModel,
                     onBack = { backStack.removeLastOrNull() },
                     onOpenPoem = { poem ->
-                        viewModel.openPoem(poem.bookId, poem.id) { ok -> if (ok) backStack.add(BookNavKey) }
+                        viewModel.openPoem(poem.bookId, poem.id) { ok -> if (ok) backStack.add(Route.Book) }
                     },
                 )
             }
-            entry<SettingsNavKey> {
+            entry<Route.Settings> {
                 SettingsPage(
                     viewModel = viewModel,
                     onBack = { backStack.removeLastOrNull() },
-                    onOpenBin = { backStack.add(BinNavKey) },
+                    onOpenBin = { backStack.add(Route.Bin) },
                     // Debug builds only: the debug pages are not registered in release.
-                    onOpenDebug = if (BuildConfig.DEBUG) ({ backStack.add(DebugNavKey) }) else null,
+                    onOpenDebug = if (BuildConfig.DEBUG) ({ backStack.add(Route.Debug) }) else null,
                 )
             }
-            entry<BinNavKey> {
+            entry<Route.Bin> {
                 BinPage(
                     viewModel = viewModel,
                     onBack = { backStack.removeLastOrNull() },
-                    onOpenBook = { backStack.add(BinBookNavKey(it)) },
-                    onOpenPoem = { backStack.add(BinPoemNavKey(it)) },
+                    onOpenBook = { backStack.add(Route.BinBook(it)) },
+                    onOpenPoem = { backStack.add(Route.BinPoem(it)) },
                 )
             }
-            entry<BinPoemNavKey> { key ->
+            entry<Route.BinPoem> { key ->
                 BinPoemPage(viewModel, key.poemId, onBack = { backStack.removeLastOrNull() })
             }
-            entry<BinBookNavKey> { key ->
+            entry<Route.BinBook> { key ->
                 BinBookPage(viewModel, key.bookId, onBack = { backStack.removeLastOrNull() })
             }
             // The debug pages are only registered in debug builds, so release has no route to them.
             if (BuildConfig.DEBUG) {
-                entry<DebugNavKey> {
+                entry<Route.Debug> {
                     DebugPage(
                         onBack = { backStack.removeLastOrNull() },
-                        onOpenLogs = { backStack.add(LogsNavKey) },
-                        onOpenCrashes = { backStack.add(CrashesNavKey) },
+                        onOpenLogs = { backStack.add(Route.Logs) },
+                        onOpenCrashes = { backStack.add(Route.Crashes) },
                     )
                 }
-                entry<LogsNavKey> { LogsPage(onBack = { backStack.removeLastOrNull() }) }
-                entry<CrashesNavKey> { CrashesPage(onBack = { backStack.removeLastOrNull() }) }
+                entry<Route.Logs> { LogsPage(onBack = { backStack.removeLastOrNull() }) }
+                entry<Route.Crashes> { CrashesPage(onBack = { backStack.removeLastOrNull() }) }
             }
         },
     )
