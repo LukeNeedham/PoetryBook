@@ -38,7 +38,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import androidx.compose.ui.tooling.preview.Preview

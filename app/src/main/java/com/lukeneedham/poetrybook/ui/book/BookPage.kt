@@ -1,5 +1,8 @@
 package com.lukeneedham.poetrybook.ui.book
 
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import com.lukeneedham.poetrybook.ui.appViewModel
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.BackHandler
@@ -48,20 +51,35 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 /**
  * One book of poems, which you swipe or tap through, with a contents sheet dropping from the top.
  * Its first page is a generated contents page. The book always ends with a blank poem, ready to be written.
+ *
+ * @param bookId the book to read.
+ * @param poemToShow a poem of the book to open on, once, or null.
+ * @param onBack leaves the page, if the book can't be read (it is gone, e.g. after the app was killed).
  */
 @Composable
 fun BookPage(
-    viewModel: PoemBookViewModel,
+    bookId: String,
+    poemToShow: String?,
+    onBack: () -> Unit,
     onOpenShelf: () -> Unit,
     onOpenVersion: (poemId: String, createdAt: Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val viewModel = appViewModel { BookViewModel(it, bookId, poemToShow) }
+
+    LaunchedEffect(viewModel.loadFailed) { if (viewModel.loadFailed) onBack() }
+    // Finished edits are saved when the app goes to the background
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.commitAll() }
+
+    // Nothing is drawn until the poems have been read, which is quick
+    if (!viewModel.isLoaded) return
+
     BookPageContent(
         poems = viewModel.poems,
-        currentBookId = viewModel.currentBook?.id,
+        currentBookId = bookId,
         shelfBooks = viewModel.shelfBooks,
         poemToShow = viewModel.poemToShow,
-        onPoemShown = { viewModel.poemToShow = null },
+        onPoemShown = viewModel::poemShown,
         isStored = viewModel::isStored,
         loadedHistory = viewModel::loadedHistory,
         loadedNotes = viewModel::loadedNotes,
@@ -76,7 +94,11 @@ fun BookPage(
         onMovePoemToBook = viewModel::movePoemToBook,
         onDeletePoem = viewModel::deletePoem,
         onOpenShelf = onOpenShelf,
-        onOpenVersion = onOpenVersion,
+        onOpenVersion = { poemId, createdAt ->
+            // The history page reads the poem as it is saved, so finish the edit first
+            viewModel.commitAll()
+            onOpenVersion(poemId, createdAt)
+        },
         modifier = modifier,
     )
 }

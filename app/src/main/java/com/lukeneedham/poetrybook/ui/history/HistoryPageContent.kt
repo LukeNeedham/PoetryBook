@@ -64,7 +64,6 @@ import com.lukeneedham.poetrybook.R
 import androidx.compose.ui.tooling.preview.Preview
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.data.PoemVersion
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.paperColors

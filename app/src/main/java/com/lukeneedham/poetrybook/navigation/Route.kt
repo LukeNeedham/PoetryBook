@@ -10,9 +10,9 @@ sealed interface Route : NavKey {
     @Serializable
     data object Shelf : Route
 
-    /** The book being read; which one is held by the view model. */
+    /** A book being read. [poemId] is a poem of it to open on, from a search result, or null. */
     @Serializable
-    data object Book : Route
+    data class Book(val bookId: String, val poemId: String? = null) : Route
 
     /** An earlier version of a poem, read-only. [createdAt] is the version's timestamp. */
     @Serializable

@@ -1,5 +1,6 @@
 package com.lukeneedham.poetrybook.ui.search
 
+import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -47,7 +48,6 @@ import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.searchPoems
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.shelf.BookCoverFace
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
@@ -60,12 +60,10 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
  */
 @Composable
 fun SearchPage(
-    viewModel: PoemBookViewModel,
     onBack: () -> Unit,
     onOpenPoem: (SearchPoem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var all by remember { mutableStateOf<List<SearchPoem>?>(null) }
-    LaunchedEffect(Unit) { all = viewModel.searchablePoems() }
-    SearchPageContent(all = all, onBack = onBack, onOpenPoem = onOpenPoem, modifier = modifier)
+    val viewModel = appViewModel { SearchViewModel(it) }
+    SearchPageContent(all = viewModel.all, onBack = onBack, onOpenPoem = onOpenPoem, modifier = modifier)
 }

@@ -97,7 +97,6 @@ import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.TitleFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme

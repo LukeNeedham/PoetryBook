@@ -1,5 +1,6 @@
 package com.lukeneedham.poetrybook.ui.bin
 
+import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,7 +39,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,18 +48,21 @@ import com.lukeneedham.poetrybook.data.BinPoem
 
 /** Preview of a deleted book (its poems' titles), with buttons to restore it or wipe it. */
 @Composable
-fun BinBookPage(viewModel: PoemBookViewModel, bookId: String, onBack: () -> Unit) {
-    val book = viewModel.binBooks.firstOrNull { it.id == bookId }
+fun BinBookPage(bookId: String, onBack: () -> Unit) {
+    val viewModel = appViewModel { BinBookViewModel(it, bookId) }
+    // Until the bin has been read there is nothing to show, and nothing to leave
+    val binBooks = viewModel.binBooks ?: return
+    val book = binBooks.firstOrNull { it.id == bookId }
     LaunchedEffect(book == null) { if (book == null) onBack() }
     if (book == null) return
 
-    val titles by produceState<List<String>>(emptyList(), book.id) { value = viewModel.poemTitles(book.id) }
+    val titles by produceState<List<String>>(emptyList(), book.id) { value = viewModel.poemTitles() }
 
     BinBookPageContent(
         book = book,
         titles = titles,
         onBack = onBack,
-        onRestore = { viewModel.restoreBook(book.id) },
-        onDeleteForever = { viewModel.deleteBookForever(book.id) },
+        onRestore = viewModel::restoreBook,
+        onDeleteForever = viewModel::deleteBookForever,
     )
 }

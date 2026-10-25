@@ -19,13 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.lukeneedham.poetrybook.ui.bin.BinBookPage
 import com.lukeneedham.poetrybook.ui.bin.BinPoemPage
 import com.lukeneedham.poetrybook.ui.bin.BinPage
 import com.lukeneedham.poetrybook.ui.book.BookPage
 import com.lukeneedham.poetrybook.ui.history.HistoryPage
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.search.SearchPage
 import com.lukeneedham.poetrybook.ui.settings.SettingsPage
 import com.lukeneedham.poetrybook.ui.shelf.ShelfPage
@@ -33,9 +34,6 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /** How long screens take to slide over one another, before the debug animation speed is applied. */
 private const val ScreenTransitionMillis = 300
-
-/** How much longer than the (scaled) slide a closed book stays in memory. */
-private const val BookClearExtraMillis = 200L
 
 /** Going back: the screen being left slides away to the right, on top of the one revealed. */
 private fun popTransition(transitionMillis: Int): ContentTransform =
@@ -45,17 +43,19 @@ private fun popTransition(transitionMillis: Int): ContentTransform =
         ).apply { targetContentZIndex = -1f }
 
 @Composable
-fun AppNavigation(viewModel: PoemBookViewModel) {
+fun AppNavigation() {
     val backStack = rememberNavBackStack(Route.Shelf)
     val transitionMillis = LocalAnimationSpeed.current.scale(ScreenTransitionMillis)
-    // How long a closed book stays in memory, so its screen can still be drawn while it slides away.
-    // It must outlast the slide, so it follows the scaled duration.
-    val bookClearDelayMillis = transitionMillis + BookClearExtraMillis
 
     NavDisplay(
         // Paper behind the screens, so a transition never shows anything else through a gap.
         modifier = Modifier.background(paperColors().paper),
         backStack = backStack,
+        // Each page has a view model of its own, kept for as long as the page is on the back stack
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator(),
+        ),
         // Screens slide over one another. They're all opaque paper, so unlike a crossfade nothing
         // is ever see-through (a crossfade over the white window background flashes in dark mode).
         transitionSpec = {
@@ -64,32 +64,21 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
         },
         popTransitionSpec = { popTransition(transitionMillis) },
         predictivePopTransitionSpec = { popTransition(transitionMillis) },
-        onBack = {
-            // Leaving a book by going back puts it on the shelf, like the shelf button does.
-            if (backStack.lastOrNull() == Route.Book) viewModel.closeBook(bookClearDelayMillis)
-            backStack.removeLastOrNull()
-        },
+        onBack = { backStack.removeLastOrNull() },
         entryProvider = entryProvider {
             entry<Route.Shelf> {
                 ShelfPage(
-                    viewModel = viewModel,
-                    onOpenBook = { backStack.add(Route.Book) },
+                    onOpenBook = { backStack.add(Route.Book(it)) },
                     onOpenSettings = { backStack.add(Route.Settings) },
                     onOpenSearch = { backStack.add(Route.Search) },
                 )
             }
-            entry<Route.Book> {
-                // After the app was killed the back stack comes back but the open book doesn't.
-                if (viewModel.currentBook == null) {
-                    LaunchedEffect(Unit) {
-                        if (backStack.lastOrNull() == Route.Book) backStack.removeLastOrNull()
-                    }
-                    return@entry
-                }
+            entry<Route.Book> { key ->
                 BookPage(
-                    viewModel = viewModel,
+                    bookId = key.bookId,
+                    poemToShow = key.poemId,
+                    onBack = { backStack.removeLastOrNull() },
                     onOpenShelf = {
-                        viewModel.closeBook(bookClearDelayMillis)
                         // Back to the shelf, even if the book was opened from a search.
                         while (backStack.size > 1 && backStack.lastOrNull() != Route.Shelf) backStack.removeLastOrNull()
                     },
@@ -98,7 +87,6 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
             }
             entry<Route.History> { key ->
                 HistoryPage(
-                    viewModel = viewModel,
                     poemId = key.poemId,
                     createdAt = key.createdAt,
                     onBack = { backStack.removeLastOrNull() },
@@ -106,16 +94,12 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
             }
             entry<Route.Search> {
                 SearchPage(
-                    viewModel = viewModel,
                     onBack = { backStack.removeLastOrNull() },
-                    onOpenPoem = { poem ->
-                        viewModel.openPoem(poem.bookId, poem.id) { ok -> if (ok) backStack.add(Route.Book) }
-                    },
+                    onOpenPoem = { poem -> backStack.add(Route.Book(poem.bookId, poem.id)) },
                 )
             }
             entry<Route.Settings> {
                 SettingsPage(
-                    viewModel = viewModel,
                     onBack = { backStack.removeLastOrNull() },
                     onOpenBin = { backStack.add(Route.Bin) },
                     // Debug builds only: the debug pages are not registered in release.
@@ -124,17 +108,16 @@ fun AppNavigation(viewModel: PoemBookViewModel) {
             }
             entry<Route.Bin> {
                 BinPage(
-                    viewModel = viewModel,
                     onBack = { backStack.removeLastOrNull() },
                     onOpenBook = { backStack.add(Route.BinBook(it)) },
                     onOpenPoem = { backStack.add(Route.BinPoem(it)) },
                 )
             }
             entry<Route.BinPoem> { key ->
-                BinPoemPage(viewModel, key.poemId, onBack = { backStack.removeLastOrNull() })
+                BinPoemPage(key.poemId, onBack = { backStack.removeLastOrNull() })
             }
             entry<Route.BinBook> { key ->
-                BinBookPage(viewModel, key.bookId, onBack = { backStack.removeLastOrNull() })
+                BinBookPage(key.bookId, onBack = { backStack.removeLastOrNull() })
             }
             // The debug pages are only registered in debug builds, so release has no route to them.
             if (BuildConfig.DEBUG) {

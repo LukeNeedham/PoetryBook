@@ -1,5 +1,6 @@
 package com.lukeneedham.poetrybook.ui.bin
 
+import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,7 +39,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,10 +52,10 @@ import com.lukeneedham.poetrybook.data.BinPoem
  */
 @Composable
 fun BinPage(
-    viewModel: PoemBookViewModel,
     onBack: () -> Unit,
     onOpenBook: (bookId: String) -> Unit,
     onOpenPoem: (poemId: String) -> Unit,
 ) {
+    val viewModel = appViewModel { BinViewModel(it) }
     BinPageContent(viewModel.binBooks, viewModel.binPoems, onBack, onOpenBook, onOpenPoem)
 }

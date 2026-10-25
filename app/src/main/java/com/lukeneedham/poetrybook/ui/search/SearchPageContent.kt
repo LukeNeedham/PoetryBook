@@ -47,7 +47,6 @@ import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.searchPoems
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.shelf.BookCoverFace
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme

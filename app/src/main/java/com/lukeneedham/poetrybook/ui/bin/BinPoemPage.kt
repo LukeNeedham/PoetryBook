@@ -1,5 +1,6 @@
 package com.lukeneedham.poetrybook.ui.bin
 
+import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,7 +39,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,8 +48,11 @@ import com.lukeneedham.poetrybook.data.BinPoem
 
 /** Preview of a deleted poem, with buttons to put it back where it was or to wipe it. */
 @Composable
-fun BinPoemPage(viewModel: PoemBookViewModel, poemId: String, onBack: () -> Unit) {
-    val poem = viewModel.binPoems.firstOrNull { it.id == poemId }
+fun BinPoemPage(poemId: String, onBack: () -> Unit) {
+    val viewModel = appViewModel { BinPoemViewModel(it, poemId) }
+    // Until the bin has been read there is nothing to show, and nothing to leave
+    val binPoems = viewModel.binPoems ?: return
+    val poem = binPoems.firstOrNull { it.id == poemId }
     // Once restored or wiped it is no longer here.
     LaunchedEffect(poem == null) { if (poem == null) onBack() }
     if (poem == null) return
@@ -57,7 +60,7 @@ fun BinPoemPage(viewModel: PoemBookViewModel, poemId: String, onBack: () -> Unit
     BinPoemPageContent(
         poem = poem,
         onBack = onBack,
-        onRestore = { viewModel.restorePoem(poem.id) },
-        onDeleteForever = { viewModel.deletePoemForever(poem.id) },
+        onRestore = viewModel::restorePoem,
+        onDeleteForever = viewModel::deletePoemForever,
     )
 }

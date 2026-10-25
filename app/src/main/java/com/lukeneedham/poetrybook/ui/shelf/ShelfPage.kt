@@ -75,6 +75,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -97,28 +98,27 @@ import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.TitleFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
-/** The bookshelf, backed by the shared [viewModel]. [onOpenBook] is called once a book has opened. */
+/** The bookshelf. [onOpenBook] is called with the book to open. */
 @Composable
 fun ShelfPage(
-    viewModel: PoemBookViewModel,
-    onOpenBook: () -> Unit,
+    onOpenBook: (bookId: String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val viewModel = appViewModel { ShelfViewModel(it) }
     ShelfPageContent(
         books = viewModel.shelfBooks,
         sort = viewModel.bookSort,
         columns = viewModel.shelfColumns,
         onColumnsChange = viewModel::changeShelfColumns,
         onSortChange = viewModel::sortBooks,
-        onOpenBook = { book -> viewModel.openBook(book) { ok -> if (ok) onOpenBook() } },
+        onOpenBook = { book -> onOpenBook(book.id) },
         onCreateBook = viewModel::createBook,
         onEditBook = viewModel::editBook,
         onDeleteBook = viewModel::deleteBook,

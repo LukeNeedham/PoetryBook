@@ -1,5 +1,6 @@
 package com.lukeneedham.poetrybook.ui.settings
 
+import com.lukeneedham.poetrybook.ui.appViewModel
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,7 +36,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.data.ImportResult
 
@@ -49,24 +49,19 @@ import com.lukeneedham.poetrybook.data.ImportResult
  */
 @Composable
 fun SettingsPage(
-    viewModel: PoemBookViewModel,
     onBack: () -> Unit,
     onOpenBin: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenDebug: (() -> Unit)? = null,
 ) {
-    var importState by remember { mutableStateOf<ImportState>(ImportState.Idle) }
+    val viewModel = appViewModel { SettingsViewModel(it) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        importState = ImportState.Running
-        viewModel.importDirectory(uri) { result ->
-            importState = if (result == null) ImportState.Failed else ImportState.Done(result)
-        }
+        if (uri != null) viewModel.importDirectory(uri)
     }
 
     SettingsPageContent(
-        importState = importState,
+        importState = viewModel.importState,
         onChooseFolder = { picker.launch(null) },
         onBack = onBack,
         onOpenBin = onOpenBin,

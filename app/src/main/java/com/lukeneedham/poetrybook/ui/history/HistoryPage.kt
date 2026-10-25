@@ -1,5 +1,6 @@
 package com.lukeneedham.poetrybook.ui.history
 
+import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -64,7 +65,6 @@ import com.lukeneedham.poetrybook.R
 import androidx.compose.ui.tooling.preview.Preview
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.data.PoemVersion
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.paperColors
@@ -78,30 +78,28 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
  */
 @Composable
 fun HistoryPage(
-    viewModel: PoemBookViewModel,
     poemId: String,
     createdAt: Long,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Normally the book page has done this already, and the cached comparisons are reused.
-    LaunchedEffect(poemId) { viewModel.trackHistory(poemId) }
-    // The notes belong to the poem, so they are the same here as beside any other version.
-    LaunchedEffect(poemId) { viewModel.loadNotes(poemId) }
+    val viewModel = appViewModel { HistoryViewModel(it, poemId) }
 
-    val versionsFlow = remember(poemId) { viewModel.history(poemId) }
-    val versions by versionsFlow.collectAsState<List<PoemVersion>, List<PoemVersion>?>(initial = null)
+    // Normally the book page has done this already, and the cached comparisons are reused.
+    LaunchedEffect(poemId) { viewModel.trackHistory() }
+    // The notes belong to the poem, so they are the same here as beside any other version.
+    LaunchedEffect(poemId) { viewModel.loadNotes() }
 
     HistoryPageContent(
-        versions = versions,
+        versions = viewModel.versions,
         createdAt = createdAt,
-        notes = viewModel.loadedNotes(poemId),
+        notes = viewModel.loadedNotes(),
         poemId = poemId,
-        currentPoem = viewModel.poems.firstOrNull { it.id == poemId },
+        currentPoem = viewModel.currentPoem,
         showChanges = viewModel.showHistoryChanges,
         onShowChangesChange = viewModel::changeShowHistoryChanges,
-        history = viewModel.loadedHistory(poemId),
-        onLoadMoreHistory = { count -> viewModel.loadMoreHistory(poemId, count) },
+        history = viewModel.loadedHistory(),
+        onLoadMoreHistory = viewModel::loadMoreHistory,
         onSaveNotes = viewModel::saveNotes,
         onBack = onBack,
         modifier = modifier,
