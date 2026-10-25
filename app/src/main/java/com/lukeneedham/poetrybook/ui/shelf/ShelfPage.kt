@@ -97,13 +97,39 @@ import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
+import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.TitleFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
-/** Stands for the book being created in [ShelfScreen]'s `editing` state; no real document id is empty. */
+/** Stands for the book being created in [ShelfPageContent]'s `editing` state; no real document id is empty. */
 private const val NewBook = ""
+
+/** The bookshelf, backed by the shared [viewModel]. [onOpenBook] is called once a book has opened. */
+@Composable
+fun ShelfPage(
+    viewModel: PoemBookViewModel,
+    onOpenBook: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenSearch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ShelfPageContent(
+        books = viewModel.shelfBooks,
+        sort = viewModel.bookSort,
+        columns = viewModel.shelfColumns,
+        onColumnsChange = viewModel::changeShelfColumns,
+        onSortChange = viewModel::sortBooks,
+        onOpenBook = { book -> viewModel.openBook(book) { ok -> if (ok) onOpenBook() } },
+        onCreateBook = viewModel::createBook,
+        onEditBook = viewModel::editBook,
+        onDeleteBook = viewModel::deleteBook,
+        onOpenSettings = onOpenSettings,
+        onOpenSearch = onOpenSearch,
+        modifier = modifier,
+    )
+}
 
 /**
  * The bookshelf: every book as a cover. Tap one to read it.
@@ -117,7 +143,7 @@ private const val NewBook = ""
  * @param onEditBook renames a book and gives it a cover colour (ARGB); reports whether that worked.
  */
 @Composable
-fun ShelfScreen(
+internal fun ShelfPageContent(
     books: List<Book>,
     sort: BookSort,
     columns: Int,
@@ -714,9 +740,9 @@ private fun EditorButton(
 
 @Preview(showBackground = true, heightDp = 640)
 @Composable
-private fun ShelfPreview() {
+private fun Preview() {
     PoetryBookTheme {
-        ShelfScreen(
+        ShelfPageContent(
             books = listOf(
                 Book("a", "Love poems", 12),
                 Book("b", "Winter", 1),

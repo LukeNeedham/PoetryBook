@@ -1,0 +1,6 @@
+# the order of the README: the shelf, a book, then search, settings and the bin
+ShelfPage
+BookPage
+SearchPage
+SettingsPage
+BinPage

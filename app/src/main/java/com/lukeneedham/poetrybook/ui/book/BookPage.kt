@@ -35,10 +35,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import com.lukeneedham.poetrybook.R
+import com.lukeneedham.poetrybook.data.Book
+import com.lukeneedham.poetrybook.data.HistoryList
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.pageturn.PageTurnBook
 import com.lukeneedham.poetrybook.pageturn.rememberPageTurnState
+import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
@@ -46,13 +50,65 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
  * Its first page is a generated contents page. The book always ends with a blank poem, ready to be written.
  */
 @Composable
-fun BookScreen(
+fun BookPage(
     viewModel: PoemBookViewModel,
     onOpenShelf: () -> Unit,
     onOpenVersion: (poemId: String, createdAt: Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val poems = viewModel.poems
+    BookPageContent(
+        poems = viewModel.poems,
+        currentBookId = viewModel.currentBook?.id,
+        shelfBooks = viewModel.shelfBooks,
+        poemToShow = viewModel.poemToShow,
+        onPoemShown = { onPoemShown() },
+        isStored = viewModel::isStored,
+        loadedHistory = viewModel::loadedHistory,
+        loadedNotes = viewModel::loadedNotes,
+        trackHistory = viewModel::trackHistory,
+        loadNotes = viewModel::loadNotes,
+        onLoadMoreHistory = viewModel::loadMoreHistory,
+        onSaveNotes = viewModel::saveNotes,
+        onCommit = viewModel::commit,
+        onTitleChange = viewModel::updateTitle,
+        onBodyChange = viewModel::updateBody,
+        onMovePoem = viewModel::movePoem,
+        onMovePoemToBook = viewModel::movePoemToBook,
+        onDeletePoem = viewModel::deletePoem,
+        onOpenShelf = onOpenShelf,
+        onOpenVersion = onOpenVersion,
+        modifier = modifier,
+    )
+}
+
+/**
+ * [poems] are the open book's poems, ending in the blank one. [poemToShow] is a poem to turn to once,
+ * which [onPoemShown] clears. [onMovePoemToBook] and [onDeletePoem] return the index of the page to show instead.
+ */
+@Composable
+internal fun BookPageContent(
+    poems: List<Poem>,
+    currentBookId: String?,
+    shelfBooks: List<Book>,
+    poemToShow: String?,
+    onPoemShown: () -> Unit,
+    isStored: (String) -> Boolean,
+    loadedHistory: (String) -> HistoryList?,
+    loadedNotes: (String) -> String?,
+    trackHistory: suspend (String) -> Unit,
+    loadNotes: suspend (String) -> Unit,
+    onLoadMoreHistory: (poemId: String, count: Int) -> Unit,
+    onSaveNotes: (poemId: String, notes: String) -> Unit,
+    onCommit: (String) -> Unit,
+    onTitleChange: (poemId: String, title: String) -> Unit,
+    onBodyChange: (poemId: String, body: String) -> Unit,
+    onMovePoem: (from: Int, to: Int) -> Unit,
+    onMovePoemToBook: (poemId: String, bookId: String) -> Int,
+    onDeletePoem: (poemId: String) -> Int,
+    onOpenShelf: () -> Unit,
+    onOpenVersion: (poemId: String, createdAt: Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val pageState = rememberPageTurnState()
     var editing by rememberSaveable { mutableStateOf(false) }
     var contentsOpen by rememberSaveable { mutableStateOf(false) }
@@ -61,7 +117,7 @@ fun BookScreen(
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     var notepadOpen by rememberSaveable { mutableStateOf(false) }
     var bodyFocusSignal by rememberSaveable { mutableIntStateOf(0) }
-    var shownBook by rememberSaveable { mutableStateOf(viewModel.currentBook?.id) }
+    var shownBook by rememberSaveable { mutableStateOf(currentBookId) }
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
 
@@ -70,14 +126,14 @@ fun BookScreen(
 
     // Finishing an edit saves the poem as a new version, if anything changed.
     fun stopEditing() {
-        if (editing) poemAt(pageState.currentPage)?.let { viewModel.commit(it.id) }
+        if (editing) poemAt(pageState.currentPage)?.let { onCommit(it.id) }
         focusManager.clearFocus()
         editing = false
     }
 
     // A different book starts from its first page.
-    LaunchedEffect(viewModel.currentBook?.id) {
-        val book = viewModel.currentBook?.id
+    LaunchedEffect(currentBookId) {
+        val book = currentBookId
         if (book != null && book != shownBook) {
             shownBook = book
             editing = false
@@ -88,12 +144,11 @@ fun BookScreen(
     }
 
     // A search result opens its book on the poem it found.
-    val poemToShow = viewModel.poemToShow
     LaunchedEffect(poemToShow, poems.size) {
         if (poemToShow == null) return@LaunchedEffect
         val index = poems.indexOfFirst { it.id == poemToShow }
         if (index >= 0) pageState.snapTo(index + 1)
-        viewModel.poemToShow = null
+        onPoemShown()
     }
 
     BackHandler(enabled = editing) { stopEditing() }
@@ -111,7 +166,7 @@ fun BookScreen(
                 editing = editing,
                 canEdit = currentPoem != null,
                 // Only a poem that has been saved has a history and a notepad.
-                hasPoem = currentPoem != null && viewModel.isStored(currentPoem.id),
+                hasPoem = currentPoem != null && isStored(currentPoem.id),
                 canShare = currentPoem != null && !currentPoem.isBlank,
                 onShare = { currentPoem?.let { sharePoem(context, it) } },
                 onOpenHistory = {
@@ -173,8 +228,8 @@ fun BookScreen(
                     onMove = if (poem.isBlank) null else {
                         { if (!pageState.isTurning) choosingBook = true }
                     },
-                    onTitleChange = { viewModel.updateTitle(poem.id, it) },
-                    onBodyChange = { viewModel.updateBody(poem.id, it) },
+                    onTitleChange = { onTitleChange(poem.id, it) },
+                    onBodyChange = { onBodyChange(poem.id, it) },
                 )
             }
         }
@@ -194,7 +249,7 @@ fun BookScreen(
             onMove = { from, to ->
                 // The page on show follows its poem to wherever that goes.
                 val shownId = poemAt(pageState.currentPage)?.id
-                viewModel.movePoem(from, to)
+                onMovePoem(from, to)
                 val shownIndex = poems.indexOfFirst { it.id == shownId } + 1
                 if (shownIndex > 0 && shownIndex != pageState.currentPage) pageState.snapTo(shownIndex)
             },
@@ -204,13 +259,13 @@ fun BookScreen(
 
     // Work out the history of the poem on show as soon as it is stored, so the sheet opens ready.
     val historyPoem = poemAt(pageState.currentPage)
-    val historyPoemId = historyPoem?.id?.takeIf { viewModel.isStored(it) }
-    LaunchedEffect(historyPoemId) { historyPoemId?.let { viewModel.trackHistory(it) } }
+    val historyPoemId = historyPoem?.id?.takeIf { isStored(it) }
+    LaunchedEffect(historyPoemId) { historyPoemId?.let { trackHistory(it) } }
 
     if (historyOpen && historyPoem != null) {
         HistorySheet(
-            history = viewModel.loadedHistory(historyPoem.id),
-            onLoadMore = { count -> viewModel.loadMoreHistory(historyPoem.id, count) },
+            history = loadedHistory(historyPoem.id),
+            onLoadMore = { count -> onLoadMoreHistory(historyPoem.id, count) },
             onSelect = { version ->
                 historyOpen = false
                 onOpenVersion(historyPoem.id, version.createdAt)
@@ -221,12 +276,12 @@ fun BookScreen(
 
     // Read the notes of the poem on show as soon as it is stored, so the notepad opens ready.
     val notepadPoem = poemAt(pageState.currentPage)
-    val notepadPoemId = notepadPoem?.id?.takeIf { viewModel.isStored(it) }
-    LaunchedEffect(notepadPoemId) { notepadPoemId?.let { viewModel.loadNotes(it) } }
-    val notepadNotes = notepadPoemId?.let { viewModel.loadedNotes(it) }
+    val notepadPoemId = notepadPoem?.id?.takeIf { isStored(it) }
+    LaunchedEffect(notepadPoemId) { notepadPoemId?.let { loadNotes(it) } }
+    val notepadNotes = notepadPoemId?.let { loadedNotes(it) }
     if (notepadOpen && notepadPoemId != null && notepadNotes != null) {
         NotepadSheet(
-            viewModel = viewModel,
+            onSaveNotes = onSaveNotes,
             poemId = notepadPoemId,
             notes = notepadNotes,
             onDismiss = {
@@ -239,7 +294,7 @@ fun BookScreen(
 
     val poemToMove = poemAt(pageState.currentPage)
     if (choosingBook && poemToMove != null) {
-        val otherBooks = viewModel.shelfBooks.filter { it.id != viewModel.currentBook?.id }
+        val otherBooks = shelfBooks.filter { it.id != currentBookId }
         AlertDialog(
             onDismissRequest = { choosingBook = false },
             title = { Text(stringResource(R.string.move_poem_title)) },
@@ -259,7 +314,7 @@ fun BookScreen(
                                 modifier = Modifier.clickable {
                                     choosingBook = false
                                     stopEditing()
-                                    pageState.snapTo(viewModel.movePoemToBook(poemToMove.id, book.id) + 1)
+                                    pageState.snapTo(onMovePoemToBook(poemToMove.id, book.id) + 1)
                                 },
                             )
                         }
@@ -284,7 +339,7 @@ fun BookScreen(
                     onClick = {
                         confirmingDelete = false
                         stopEditing()
-                        pageState.snapTo(viewModel.deletePoem(poemToDelete.id) + 1)
+                        pageState.snapTo(onDeletePoem(poemToDelete.id) + 1)
                     },
                 ) { Text(stringResource(R.string.delete)) }
             },
@@ -306,4 +361,37 @@ private fun sharePoem(context: Context, poem: Poem) {
         putExtra(Intent.EXTRA_TEXT, text)
     }
     context.startActivity(Intent.createChooser(send, context.getString(R.string.share_poem)))
+}
+
+@Preview(showBackground = true, heightDp = 640)
+@Composable
+private fun Preview() {
+    PoetryBookTheme {
+        BookPageContent(
+            poems = listOf(
+                Poem("1", "Evening", "The light goes slowly\nover the roofs"),
+                Poem("2", "Frost", "Silver on the grass"),
+                Poem("3"),
+            ),
+            currentBookId = "a",
+            shelfBooks = listOf(Book("a", "Love poems", 2), Book("b", "Winter", 1)),
+            poemToShow = null,
+            onPoemShown = {},
+            isStored = { true },
+            loadedHistory = { null },
+            loadedNotes = { null },
+            trackHistory = {},
+            loadNotes = {},
+            onLoadMoreHistory = { _, _ -> },
+            onSaveNotes = { _, _ -> },
+            onCommit = {},
+            onTitleChange = { _, _ -> },
+            onBodyChange = { _, _ -> },
+            onMovePoem = { _, _ -> },
+            onMovePoemToBook = { _, _ -> 0 },
+            onDeletePoem = { 0 },
+            onOpenShelf = {},
+            onOpenVersion = { _, _ -> },
+        )
+    }
 }

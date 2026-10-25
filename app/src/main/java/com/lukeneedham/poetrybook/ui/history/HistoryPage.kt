@@ -39,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import com.lukeneedham.poetrybook.data.HistoryList
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.data.differingRanges
 import com.lukeneedham.poetrybook.ui.book.NotepadSheet
@@ -60,6 +61,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
+import androidx.compose.ui.tooling.preview.Preview
+import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.data.PoemVersion
 import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
@@ -74,19 +77,54 @@ import com.lukeneedham.poetrybook.ui.theme.paperColors
  * from the current poem.
  */
 @Composable
-fun HistoryScreen(
+fun HistoryPage(
     viewModel: PoemBookViewModel,
     poemId: String,
     createdAt: Long,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Normally the book screen has done this already, and the cached comparisons are reused.
+    // Normally the book page has done this already, and the cached comparisons are reused.
     LaunchedEffect(poemId) { viewModel.trackHistory(poemId) }
+    // The notes belong to the poem, so they are the same here as beside any other version.
+    LaunchedEffect(poemId) { viewModel.loadNotes(poemId) }
 
-    val colors = paperColors()
     val versionsFlow = remember(poemId) { viewModel.history(poemId) }
     val versions by versionsFlow.collectAsState<List<PoemVersion>, List<PoemVersion>?>(initial = null)
+
+    HistoryPageContent(
+        versions = versions,
+        createdAt = createdAt,
+        notes = viewModel.loadedNotes(poemId),
+        poemId = poemId,
+        currentPoem = viewModel.poems.firstOrNull { it.id == poemId },
+        showChanges = viewModel.showHistoryChanges,
+        onShowChangesChange = viewModel::changeShowHistoryChanges,
+        history = history,
+        onLoadMoreHistory = { count -> viewModel.loadMoreHistory(poemId, count) },
+        onSaveNotes = viewModel::saveNotes,
+        onBack = onBack,
+        modifier = modifier,
+    )
+}
+
+/** [versions] is null while they are still being read. [currentPoem] is what the versions are compared with. */
+@Composable
+internal fun HistoryPageContent(
+    versions: List<PoemVersion>?,
+    createdAt: Long,
+    notes: String?,
+    poemId: String,
+    currentPoem: Poem?,
+    showChanges: Boolean,
+    onShowChangesChange: (Boolean) -> Unit,
+    history: HistoryList?,
+    onLoadMoreHistory: (count: Int) -> Unit,
+    onSaveNotes: (poemId: String, notes: String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = paperColors()
     val loaded = versions
     val startIndex = loaded?.indexOfFirst { it.createdAt == createdAt }
 
@@ -115,16 +153,25 @@ fun HistoryScreen(
                 modifier = Modifier.padding(24.dp),
             )
         }
-        else -> HistoryPager(viewModel, poemId, loaded, startIndex, onBack, modifier)
+        else -> HistoryPager(
+            poemId, loaded, startIndex, notes, currentPoem, showChanges, onShowChangesChange,
+            history, onLoadMoreHistory, onSaveNotes, onBack, modifier,
+        )
     }
 }
 
 @Composable
 private fun HistoryPager(
-    viewModel: PoemBookViewModel,
     poemId: String,
     versions: List<PoemVersion>,
     startIndex: Int,
+    notes: String?,
+    currentPoem: Poem?,
+    showChanges: Boolean,
+    onShowChangesChange: (Boolean) -> Unit,
+    history: HistoryList?,
+    onLoadMoreHistory: (count: Int) -> Unit,
+    onSaveNotes: (poemId: String, notes: String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -133,10 +180,6 @@ private fun HistoryPager(
     val scope = rememberCoroutineScope()
     var notepadOpen by rememberSaveable { mutableStateOf(false) }
     var historyOpen by rememberSaveable { mutableStateOf(false) }
-    // The notes belong to the poem, so they are the same here as beside any other version.
-    LaunchedEffect(poemId) { viewModel.loadNotes(poemId) }
-    val notes = viewModel.loadedNotes(poemId)
-    val currentPoem = viewModel.poems.firstOrNull { it.id == poemId }
     val shown = versions.getOrNull(pagerState.currentPage)
 
     Column(
@@ -185,8 +228,8 @@ private fun HistoryPager(
                 )
             }
             if (currentPoem != null) {
-                val showing = viewModel.showHistoryChanges
-                IconButton(onClick = { viewModel.changeShowHistoryChanges(!showing) }) {
+                val showing = showChanges
+                IconButton(onClick = { onShowChangesChange(!showing) }) {
                     Icon(
                         painter = painterResource(R.drawable.ic_compare),
                         contentDescription = stringResource(
@@ -212,15 +255,15 @@ private fun HistoryPager(
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             versions.getOrNull(page)?.let { version ->
-                VersionPage(version, compareTo = currentPoem, showChanges = viewModel.showHistoryChanges)
+                VersionPage(version, compareTo = currentPoem, showChanges = showChanges)
             }
         }
     }
 
     if (historyOpen) {
         HistorySheet(
-            history = viewModel.loadedHistory(poemId),
-            onLoadMore = { count -> viewModel.loadMoreHistory(poemId, count) },
+            history = history,
+            onLoadMore = onLoadMoreHistory,
             onSelect = { version ->
                 historyOpen = false
                 val index = versions.indexOfFirst { it.createdAt == version.createdAt }
@@ -232,7 +275,7 @@ private fun HistoryPager(
 
     if (notepadOpen && notes != null) {
         NotepadSheet(
-            viewModel = viewModel,
+            onSaveNotes = onSaveNotes,
             poemId = poemId,
             notes = notes,
             onDismiss = { notepadOpen = false },
@@ -413,4 +456,27 @@ private fun AddedNote(count: Int, style: TextStyle, modifier: Modifier = Modifie
         color = AddedColor,
         modifier = modifier,
     )
+}
+
+@Preview(showBackground = true, heightDp = 640)
+@Composable
+private fun Preview() {
+    PoetryBookTheme {
+        HistoryPageContent(
+            versions = listOf(
+                PoemVersion(2_000, "Evening", "The light goes slowly\nover the roofs"),
+                PoemVersion(1_000, "Evening", "The light goes\nover the roofs"),
+            ),
+            createdAt = 1_000,
+            notes = null,
+            poemId = "1",
+            currentPoem = Poem("1", "Evening", "The light goes slowly\nover the roofs"),
+            showChanges = false,
+            onShowChangesChange = {},
+            history = null,
+            onLoadMoreHistory = {},
+            onSaveNotes = { _, _ -> },
+            onBack = {},
+        )
+    }
 }

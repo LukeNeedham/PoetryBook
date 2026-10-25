@@ -32,11 +32,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
+import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
+import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.data.ImportResult
 
-private sealed interface ImportState {
+internal sealed interface ImportState {
     data object Idle : ImportState
     data object Running : ImportState
     data object Failed : ImportState
@@ -46,16 +49,16 @@ private sealed interface ImportState {
 /**
  * Settings: the bin of deleted books and poems, and a one-off import of poems from a folder.
  *
- * @param onImport copies the books and poems in the picked folder into the app and calls back
- * with what was imported, or null if the folder couldn't be read. The folder isn't kept.
+ * Importing copies the books and poems in the picked folder into the app. The folder isn't kept.
+ *
  * @param onOpenDebug opens the debug page. Null (the default) hides the entry, so release builds
  * show none.
  */
 @Composable
-fun SettingsScreen(
+fun SettingsPage(
+    viewModel: PoemBookViewModel,
     onBack: () -> Unit,
     onOpenBin: () -> Unit,
-    onImport: (Uri, onDone: (ImportResult?) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
     onOpenDebug: (() -> Unit)? = null,
 ) {
@@ -64,11 +67,30 @@ fun SettingsScreen(
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         importState = ImportState.Running
-        onImport(uri) { result ->
+        viewModel.importDirectory(uri) { result ->
             importState = if (result == null) ImportState.Failed else ImportState.Done(result)
         }
     }
 
+    SettingsPageContent(
+        importState = importState,
+        onChooseFolder = { picker.launch(null) },
+        onBack = onBack,
+        onOpenBin = onOpenBin,
+        modifier = modifier,
+        onOpenDebug = onOpenDebug,
+    )
+}
+
+@Composable
+internal fun SettingsPageContent(
+    importState: ImportState,
+    onChooseFolder: () -> Unit,
+    onBack: () -> Unit,
+    onOpenBin: () -> Unit,
+    modifier: Modifier = Modifier,
+    onOpenDebug: (() -> Unit)? = null,
+) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
@@ -128,7 +150,7 @@ fun SettingsScreen(
                 modifier = Modifier.padding(start = 8.dp, top = 4.dp),
             )
             Button(
-                onClick = { picker.launch(null) },
+                onClick = onChooseFolder,
                 enabled = importState != ImportState.Running,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -156,5 +178,18 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+}
+
+@Preview(showBackground = true, heightDp = 640)
+@Composable
+private fun Preview() {
+    PoetryBookTheme {
+        SettingsPageContent(
+            importState = ImportState.Done(ImportResult(books = 3, poems = 42)),
+            onChooseFolder = {},
+            onBack = {},
+            onOpenBin = {},
+        )
     }
 }

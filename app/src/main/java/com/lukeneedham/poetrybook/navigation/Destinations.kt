@@ -7,39 +7,39 @@ import kotlinx.serialization.Serializable
 
 /** The bookshelf, the app's home. */
 @Serializable
-data object Shelf : NavKey
+data object ShelfNavKey : NavKey
 
 /** The book being read; which one is held by the view model. */
 @Serializable
-data object Book : NavKey
+data object BookNavKey : NavKey
 
 /** An earlier version of a poem, read-only. [createdAt] is the version's timestamp. */
 @Serializable
-data class History(val poemId: String, val createdAt: Long) : NavKey
+data class HistoryNavKey(val poemId: String, val createdAt: Long) : NavKey
 
 /** Search across every poem. */
 @Serializable
-data object Search : NavKey
+data object SearchNavKey : NavKey
 
 @Serializable
-data object Settings : NavKey
+data object SettingsNavKey : NavKey
 
 /** Debug hub (debug builds only), with the logs and crashes pages below it. */
 @Serializable
-data object Debug : NavKey
+data object DebugNavKey : NavKey
 
 @Serializable
-data object Logs : NavKey
+data object LogsNavKey : NavKey
 
 @Serializable
-data object Crashes : NavKey
+data object CrashesNavKey : NavKey
 
 /** Deleted books and poems. */
 @Serializable
-data object Bin : NavKey
+data object BinNavKey : NavKey
 
 @Serializable
-data class BinPoemPreview(val poemId: String) : NavKey
+data class BinPoemNavKey(val poemId: String) : NavKey
 
 @Serializable
-data class BinBookPreview(val bookId: String) : NavKey
+data class BinBookNavKey(val bookId: String) : NavKey
