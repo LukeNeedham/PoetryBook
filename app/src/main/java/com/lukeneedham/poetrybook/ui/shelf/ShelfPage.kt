@@ -100,7 +100,7 @@ import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.TitleFont
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /** The bookshelf. [onOpenBook] is called with the book to open. */

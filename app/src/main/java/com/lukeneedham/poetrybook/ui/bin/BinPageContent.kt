@@ -41,7 +41,7 @@ import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import androidx.compose.ui.tooling.preview.Preview
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.data.BinBook
 import com.lukeneedham.poetrybook.data.BinPoem
 
@@ -123,7 +123,7 @@ private fun BinRow(title: String, subtitle: String, onClick: () -> Unit) {
 @Preview(showBackground = true, heightDp = 640)
 @Composable
 private fun Preview() {
-    PoetryBookTheme {
+    AppTheme {
         BinPageContent(
             books = listOf(BinBook("b", "Winter", null, poemCount = 4, deletedAt = 1_700_000_000_000)),
             poems = listOf(BinPoem("p", "Evening", "The light goes slowly", "Love poems", deletedAt = 1_700_100_000_000)),

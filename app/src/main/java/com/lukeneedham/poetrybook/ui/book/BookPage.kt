@@ -45,7 +45,7 @@ import com.lukeneedham.poetrybook.data.HistoryList
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.pageturn.PageTurnBook
 import com.lukeneedham.poetrybook.pageturn.rememberPageTurnState
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**

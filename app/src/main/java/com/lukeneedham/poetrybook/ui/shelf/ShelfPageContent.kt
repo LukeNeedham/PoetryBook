@@ -99,7 +99,7 @@ import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.TitleFont
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /** Stands for the book being created in [ShelfPageContent]'s `editing` state; no real document id is empty. */
@@ -715,7 +715,7 @@ private fun EditorButton(
 @Preview(showBackground = true, heightDp = 640)
 @Composable
 private fun Preview() {
-    PoetryBookTheme {
+    AppTheme {
         ShelfPageContent(
             books = listOf(
                 Book("a", "Love poems", 12),

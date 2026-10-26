@@ -41,7 +41,7 @@ import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import androidx.compose.ui.tooling.preview.Preview
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.data.BinBook
 import com.lukeneedham.poetrybook.data.BinPoem
 
@@ -89,7 +89,7 @@ internal fun BinPoemPageContent(poem: BinPoem, onBack: () -> Unit, onRestore: ()
 @Preview(showBackground = true, heightDp = 640)
 @Composable
 private fun Preview() {
-    PoetryBookTheme {
+    AppTheme {
         BinPoemPageContent(
             poem = BinPoem("p", "Evening", "The light goes slowly\nover the roofs", "Love poems", deletedAt = 1_700_100_000_000),
             onBack = {},

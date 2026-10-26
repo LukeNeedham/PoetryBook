@@ -5,13 +5,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.ui.book.BookPageContent
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 
 /** Rendered by CI to docs/screenshots/<position in order.txt>-BookPage.png: a book open on its contents page. */
 @Preview
 @Composable
 private fun BookPageScreenshot() {
-    PoetryBookTheme {
+    AppTheme {
         BookPageContent(
             poems = listOf(
                 Poem("1", "Evening", "The light goes slowly\nover the roofs,\nand the street lets go of the day."),
