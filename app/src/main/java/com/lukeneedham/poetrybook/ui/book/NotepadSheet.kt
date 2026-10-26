@@ -48,7 +48,7 @@ private const val SaveDebounceMillis = 400L
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotepadSheet(
-    viewModel: PoemBookViewModel,
+    onSaveNotes: (poemId: String, notes: String) -> Unit,
     poemId: String,
     notes: String,
     onDismiss: () -> Unit,
@@ -68,7 +68,7 @@ fun NotepadSheet(
                 style = MaterialTheme.typography.titleLarge,
             )
             // Bring up the keyboard only once the sheet is fully open, not while it slides in.
-            NotepadField(viewModel, poemId, notes, focusWhen = { sheetState.currentValue == SheetValue.Expanded })
+            NotepadField(onSaveNotes, poemId, notes, focusWhen = { sheetState.currentValue == SheetValue.Expanded })
         }
     }
 }
@@ -76,7 +76,7 @@ fun NotepadSheet(
 @OptIn(FlowPreview::class) // debounce
 @Composable
 private fun NotepadField(
-    viewModel: PoemBookViewModel,
+    onSaveNotes: (poemId: String, notes: String) -> Unit,
     poemId: String,
     initial: String,
     focusWhen: () -> Boolean,
@@ -93,12 +93,12 @@ private fun NotepadField(
         snapshotFlow { state.text.toString() }
             .drop(1)
             .debounce(SaveDebounceMillis)
-            .collect { viewModel.saveNotes(poemId, it) }
+            .collect { onSaveNotes(poemId, it) }
     }
     DisposableEffect(state) {
         onDispose {
             val text = state.text.toString()
-            if (text != initial) viewModel.saveNotes(poemId, text)
+            if (text != initial) onSaveNotes(poemId, text)
         }
     }
 

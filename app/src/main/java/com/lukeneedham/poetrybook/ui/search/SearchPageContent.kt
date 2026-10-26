@@ -40,35 +40,30 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.searchPoems
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.shelf.BookCoverFace
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
+import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /** How wide the book beside each result is; its height follows the shelf's proportions. */
 private val SearchBookWidth = 54.dp
 
-/**
- * Every poem in every book, filtered by what is typed in the search bar and ordered by how well
- * they match it, or alphabetically by title while the bar is empty. Searches the current title and
- * text of each poem only.
- */
+/** [all] is every poem to search, or null while they are still being read. */
 @Composable
-fun SearchScreen(
-    viewModel: PoemBookViewModel,
+internal fun SearchPageContent(
+    all: List<SearchPoem>?,
     onBack: () -> Unit,
     onOpenPoem: (SearchPoem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = paperColors()
-    var all by remember { mutableStateOf<List<SearchPoem>?>(null) }
-    LaunchedEffect(Unit) { all = viewModel.searchablePoems() }
 
     val queryState = rememberTextFieldState()
     val query = queryState.text.toString()
@@ -161,5 +156,20 @@ fun SearchScreen(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true, heightDp = 640)
+@Composable
+private fun Preview() {
+    PoetryBookTheme {
+        SearchPageContent(
+            all = listOf(
+                SearchPoem("1", "a", "Love poems", "Evening", "The light goes slowly"),
+                SearchPoem("2", "b", "Winter", "First frost", "Silver on the grass"),
+            ),
+            onBack = {},
+            onOpenPoem = {},
+        )
     }
 }

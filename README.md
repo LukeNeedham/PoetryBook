@@ -1,53 +1,66 @@
+<!-- Generated from readme.yml by LukeNeedham/ci-workflows (docs/readme.md). Edit readme.yml, not this file. -->
+<p align="center">
+  <img src="app-icon.png" width="128" alt="PoetryBook icon">
+</p>
+
 # PoetryBook
 
-An Android book for your own poetry. Every page is a poem you wrote: swipe across the page to turn it, tap **Edit** to change it.
+An Android book for your own poetry.
 
-- **One poem per page**, with the title centred at the top of the page. The book always ends with exactly one blank, unstarted poem ("Untitled"): write in it and a fresh one appears after it
-- **Turn pages** by swiping, or by tapping the left or right edge of the page
-- **Page-turn swipe**: pages peel off with a page-curl effect (the geometry comes from [TurnThePage](https://github.com/LukeNeedham/TurnThePage); see `pageturn/`)
-- A toolbar above the pages, with a ribbon button for **Contents**, and on the right the poem's **History**, its **Notepad**, a bin to **delete** the poem (with a confirmation) and a pencil to **edit** it (title and text). It is not part of the turning page; the pages turn below it
-- **Contents** drops down from the top like a reversed bottom sheet, listing every poem. Tap one to turn straight to it. Its one button goes back to the **Bookshelf**
-- **Bookshelf**: every book is a cover on the shelf. Create, rename, recolour and delete books from there
-- **Stored in a Room database** (books, poems, poem versions), not in files. The schema and the reasons for it are in [docs/database.md](docs/database.md), including the rule that migrations must never be destructive
-- **History**: tapping the tick after editing saves a new *version* of the poem, but only if the title or text changed. The history drop-down lists the versions (timestamp, title, first two lines); picking one opens it on a read-only page where the text can be selected and copied
-- **Notepad**: a bottom sheet that is always a text field, for rhymes, metaphors and other ideas. It belongs to the poem as a whole, so every version shares it
-- **Bin**: deleting a book or poem moves it to the bin (Settings → Bin) instead of wiping it. From the bin you can preview an item and restore it (a poem returns to the end of its book) or delete it for good, which wipes its history too. There is no "empty bin"
-- **Import** (Settings): a one-off copy of a folder of text files into the database. Every subfolder is a book and every `.txt` file in it a poem (loose files go into a book called Misc). The folder is not remembered or touched afterwards
+## Description
 
-## Code layout
+PoetryBook is an Android book for your own poetry. Every page is a poem you wrote: swipe across the page to turn it,
+tap the pencil to change it. Pages peel off with a page-curl effect, and the book always ends with one blank,
+unstarted poem, ready to be written in.
 
-| Package | What |
-| --- | --- |
-| `pageturn/` | The page-turn UI. `PageTurnBook` shows composable pages one at a time and curls between them; `PageTurnState` drives drags and settle animations. The pages next to the current one are kept composed and recorded so a turn can start instantly. `geometry/` and `turn/` are the framework-free curl maths copied from TurnThePage; `CurlPainter` draws the fold. No EPUB / reading code. |
-| `ui/shelf/` | `ShelfScreen`, the bookshelf |
-| `ui/book/` | `BookScreen` (one book), `PoemPage` (read/edit one poem), `BookToolbar`, `ContentsSheet` (the top drop-down), `HistoryMenu`, `NotepadSheet`, `PoemBookViewModel` |
-| `ui/history/`, `ui/bin/`, `ui/settings/` | The read-only version page, the bin screens, and settings (bin entry and import) |
-| `data/` | `Poem`, `PoemVersion`, `Book`; `PoemStore` (all database operations); `db/` (Room entities, DAOs, database); `DirectoryImporter` and `PoemFolder` (one-off import through the Storage Access Framework); `AppSettings` (shelf sort order, and what the old folder-based app remembered, used by import) |
+Books sit on a shelf, each a cover you can create, rename, recolour and delete. A contents sheet drops from the top
+to jump to any poem. Saving an edit keeps a new version of the poem, so its history lists every earlier version to
+read and copy, and a notepad beside the poem holds rhymes and ideas. Deleted books and poems wait in the bin until
+you restore them or delete them for good, and a one-off import copies a folder of text files into the app.
 
-## Stack
+## Screenshots
 
-- Kotlin + Jetpack Compose (Material 3)
-- Single activity (`MainActivity`), navigation with [Navigation 3](https://developer.android.com/guide/navigation/navigation-3)
-- CI from [LukeNeedham/ci-workflows](https://github.com/LukeNeedham/ci-workflows): every PR gets a debug APK link; the *Release* workflow publishes signed releases
+<img src="docs/screenshots/01-ShelfPage.png" width="240" alt="Shelf Page">
+<img src="docs/screenshots/02-BookPage.png" width="240" alt="Book Page">
+<img src="docs/screenshots/03-SearchPage.png" width="240" alt="Search Page">
+<img src="docs/screenshots/04-SettingsPage.png" width="240" alt="Settings Page">
+<img src="docs/screenshots/05-BinPage.png" width="240" alt="Bin Page">
 
-## Build
+## Getting started as a user
+
+1. Install the latest build from the [AppHub](https://www.lukeneedham.com/apphub) app, or download the APK from the [Releases](https://github.com/LukeNeedham/PoetryBook/releases) page.
+
+Requires Android 8.0 (API 26) or newer.
+
+## Getting started as a developer
+
+Requirements: JDK 17 and the Android SDK (platform 37), for example through Android Studio.
 
 ```
-./gradlew assembleDebug
+git clone https://github.com/LukeNeedham/PoetryBook.git
+cd PoetryBook
+./gradlew assembleDebug    # the APK is in app/build/outputs/apk/debug/
+./gradlew test             # unit tests
 ```
 
-Needs JDK 17+ and the Android SDK. The release build applies a Gradle script from `ci-workflows` by URL, so the first build needs network.
+Every pull request is built by CI, which comments on it with a link to install the APK.
 
-## Releases
+Like all my apps, it follows the shared architecture and conventions (single activity, Jetpack Compose, Navigation 3, MVVM with every page split into a `Page` and a `PageContent`, Koin): see [ci-workflows](https://github.com/LukeNeedham/ci-workflows/blob/main/docs/new-app.md).
 
-See the [setup guide](https://github.com/LukeNeedham/ci-workflows/blob/main/docs/setup.md#3-permanent-releases-optional). The four `RELEASE_KEYSTORE_*` / `RELEASE_KEY_*` repo secrets must be added before running *Release*.
+Everything is stored in a Room database, not in files. The schema and the rule that migrations must never be
+destructive are in [docs/database.md](docs/database.md).
 
-## How poems are stored
+One `PoemBookViewModel` owns the shelf, the open book and the bin, and is passed to every page; the pages are
+`XPage` plus a stateless `XPageContent`, each in its own file. The page turn is in `pageturn/` (`PageTurnBook` shows composable pages one
+at a time and curls between them; `geometry/` and `turn/` are the framework-free curl maths from
+[TurnThePage](https://github.com/LukeNeedham/TurnThePage)). Import (`DirectoryImporter`) reads a folder through
+the Storage Access Framework: every subfolder is a book and every `.txt` file in it a poem, with loose files going
+into a book called Misc.
 
-- In the chosen folder, every subfolder (except hidden ones starting with `.`) is a book, and `.txt` files directly in the folder form the Misc book. Misc is always on the shelf.
-- A poem's file name is its title (characters file systems reject are dropped; a blank title is `Untitled`; clashes become `Title (2).txt`). The file's contents are the poem text.
-- Editing a title renames the file; deleting a poem deletes its file. Changes are written shortly after you stop typing and when the app goes to the background.
-- Each book's page order is kept in the app's settings, since text files can't hold it. After a reinstall, poems come back in alphabetical order.
-- Poems are read from the folder when the app starts; edits made to the files while the app is open are picked up on the next start.
-- Choosing a different folder loads the books in that folder; your current books and poems stay in the old folder.
-- A poem with no title and no text is unstarted: it has no file, and loses it if you empty a poem out.
+## Contributing
+
+Branch from `main`, make the change, and open a pull request. CI must be green before it is merged.
+
+## License
+
+All rights reserved. See [LICENSE](LICENSE).

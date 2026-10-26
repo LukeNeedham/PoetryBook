@@ -4,30 +4,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import com.lukeneedham.poetrybook.navigation.AppNavigation
-import com.lukeneedham.poetrybook.ui.book.PoemBookViewModel
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.ProvideAppDebugSettings
 
 /** The app's only activity. All screens are composables hosted by [AppNavigation]. */
 class MainActivity : ComponentActivity() {
-    private val viewModel: PoemBookViewModel by viewModels()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             PoetryBookTheme {
                 ProvideAppDebugSettings {
-                    AppNavigation(viewModel)
+                    AppNavigation()
                 }
             }
         }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        viewModel.commitAll()
     }
 }

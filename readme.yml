@@ -1,0 +1,27 @@
+# The data of this app's README.md. CI renders README.md from it (docs/readme.md in LukeNeedham/ci-workflows):
+# edit this file, never README.md.
+
+name: PoetryBook
+tagline: An Android book for your own poetry.
+
+description: |
+  PoetryBook is an Android book for your own poetry. Every page is a poem you wrote: swipe across the page to turn it,
+  tap the pencil to change it. Pages peel off with a page-curl effect, and the book always ends with one blank,
+  unstarted poem, ready to be written in.
+
+  Books sit on a shelf, each a cover you can create, rename, recolour and delete. A contents sheet drops from the top
+  to jump to any poem. Saving an edit keeps a new version of the poem, so its history lists every earlier version to
+  read and copy, and a notepad beside the poem holds rhymes and ideas. Deleted books and poems wait in the bin until
+  you restore them or delete them for good, and a one-off import copies a folder of text files into the app.
+
+developer:
+  notes: |
+    Everything is stored in a Room database, not in files. The schema and the rule that migrations must never be
+    destructive are in [docs/database.md](docs/database.md).
+
+    One `PoemBookViewModel` owns the shelf, the open book and the bin, and is passed to every page; the pages are
+    `XPage` plus a stateless `XPageContent`, each in its own file. The page turn is in `pageturn/` (`PageTurnBook` shows composable pages one
+    at a time and curls between them; `geometry/` and `turn/` are the framework-free curl maths from
+    [TurnThePage](https://github.com/LukeNeedham/TurnThePage)). Import (`DirectoryImporter`) reads a folder through
+    the Storage Access Framework: every subfolder is a book and every `.txt` file in it a poem, with loose files going
+    into a book called Misc.

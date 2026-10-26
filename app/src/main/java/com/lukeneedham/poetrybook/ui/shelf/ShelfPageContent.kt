@@ -102,7 +102,7 @@ import com.lukeneedham.poetrybook.ui.theme.TitleFont
 import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
-/** Stands for the book being created in [ShelfScreen]'s `editing` state; no real document id is empty. */
+/** Stands for the book being created in [ShelfPageContent]'s `editing` state; no real document id is empty. */
 private const val NewBook = ""
 
 /**
@@ -117,7 +117,7 @@ private const val NewBook = ""
  * @param onEditBook renames a book and gives it a cover colour (ARGB); reports whether that worked.
  */
 @Composable
-fun ShelfScreen(
+internal fun ShelfPageContent(
     books: List<Book>,
     sort: BookSort,
     columns: Int,
@@ -714,9 +714,9 @@ private fun EditorButton(
 
 @Preview(showBackground = true, heightDp = 640)
 @Composable
-private fun ShelfPreview() {
+private fun Preview() {
     PoetryBookTheme {
-        ShelfScreen(
+        ShelfPageContent(
             books = listOf(
                 Book("a", "Love poems", 12),
                 Book("b", "Winter", 1),

@@ -1,5 +1,6 @@
 package com.lukeneedham.poetrybook.ui.book
 
+import com.lukeneedham.poetrybook.data.HistoryChunkSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +38,7 @@ private const val PrefetchDistance = 3
 /**
  * The poem's history in a bottom sheet: every saved version, newest first, each with when it was
  * saved and a summary of what it changed from the version before. The [history] comes from
- * [PoemBookViewModel.trackHistory] with only the newest versions compared; a spinner shows until
+ * [HistoryRepository.trackHistory] with only the newest versions compared; a spinner shows until
  * the first of them are ready, and [onLoadMore] asks for more (a total row count to have ready)
  * when the list is scrolled near the end of what is ready. Picking one calls [onSelect].
  */
