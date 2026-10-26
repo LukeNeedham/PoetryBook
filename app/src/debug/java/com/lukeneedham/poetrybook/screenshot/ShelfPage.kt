@@ -5,13 +5,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.BookSort
 import com.lukeneedham.poetrybook.ui.shelf.ShelfPageContent
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 
 /** Rendered by CI to docs/screenshots/<position in order.txt>-ShelfPage.png: the bookshelf with a few books. */
 @Preview
 @Composable
 private fun ShelfPageScreenshot() {
-    PoetryBookTheme {
+    AppTheme {
         ShelfPageContent(
             books = listOf(
                 Book("a", "Love poems", 12, 0xFF8E3B46.toInt()),

@@ -51,7 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.data.Poem
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /**
@@ -278,7 +278,7 @@ private fun EditToolbar(onDelete: (() -> Unit)?, onMove: (() -> Unit)?) {
 @Preview(showBackground = true, heightDp = 640)
 @Composable
 private fun PoemPagePreview() {
-    PoetryBookTheme {
+    AppTheme {
         PoemPage(
             poem = Poem("1", "Evening", "The light goes out\nof the afternoon,\nslowly, like a breath."),
             pageNumber = 1,

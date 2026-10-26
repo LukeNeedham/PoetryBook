@@ -35,7 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.data.ImportResult
 
 internal sealed interface ImportState {
@@ -147,7 +147,7 @@ internal fun SettingsPageContent(
 @Preview(showBackground = true, heightDp = 640)
 @Composable
 private fun Preview() {
-    PoetryBookTheme {
+    AppTheme {
         SettingsPageContent(
             importState = ImportState.Done(ImportResult(books = 3, poems = 42)),
             onChooseFolder = {},

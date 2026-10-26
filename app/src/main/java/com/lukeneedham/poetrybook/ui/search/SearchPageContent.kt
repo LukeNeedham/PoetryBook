@@ -49,7 +49,7 @@ import com.lukeneedham.poetrybook.data.SearchPoem
 import com.lukeneedham.poetrybook.data.searchPoems
 import com.lukeneedham.poetrybook.ui.shelf.BookCoverFace
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
-import com.lukeneedham.poetrybook.ui.theme.PoetryBookTheme
+import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
 
 /** How wide the book beside each result is; its height follows the shelf's proportions. */
@@ -162,7 +162,7 @@ internal fun SearchPageContent(
 @Preview(showBackground = true, heightDp = 640)
 @Composable
 private fun Preview() {
-    PoetryBookTheme {
+    AppTheme {
         SearchPageContent(
             all = listOf(
                 SearchPoem("1", "a", "Love poems", "Evening", "The light goes slowly"),
