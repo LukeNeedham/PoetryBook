@@ -4,7 +4,7 @@ import android.app.Application
 import com.lukeneedham.common.DebugKit
 import com.lukeneedham.common.DebugKitConfig
 import com.lukeneedham.common.logger.Logger
-import com.lukeneedham.poetrybook.di.appModule
+import com.lukeneedham.poetrybook.di.KoinModules
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -16,7 +16,7 @@ class App : Application() {
         Logger.i("App started")
         startKoin {
             androidContext(this@App)
-            modules(appModule)
+            modules(KoinModules.modules)
         }
     }
 }
