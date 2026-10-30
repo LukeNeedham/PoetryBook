@@ -8,15 +8,12 @@ import androidx.lifecycle.viewModelScope
 import com.lukeneedham.poetrybook.data.BinPoem
 import com.lukeneedham.poetrybook.data.PoetryRepository
 import kotlinx.coroutines.launch
-import com.lukeneedham.poetrybook.data.HistoryRepository
 
 /** A deleted poem in the bin, to put back where it was or to wipe. */
 class BinPoemViewModel(
     private val poemId: String,
-    poetry: PoetryRepository,
-    private val history: HistoryRepository,
+    private val poetry: PoetryRepository,
 ) : ViewModel() {
-
     /** Every deleted poem, or null until they have been read. The page leaves when this one is no longer among them. */
     var binPoems: List<BinPoem>? by mutableStateOf(null)
         private set
