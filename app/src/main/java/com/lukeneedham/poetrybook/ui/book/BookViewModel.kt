@@ -1,12 +1,11 @@
 package com.lukeneedham.poetrybook.ui.book
 
-import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lukeneedham.poetrybook.data.Book
 import com.lukeneedham.poetrybook.data.HistoryList
@@ -25,12 +24,11 @@ import java.util.UUID
  * the one in the page's route, so this view model is its own and is not shared with any other page.
  */
 class BookViewModel(
-    application: Application,
     private val bookId: String,
     poemToShow: String?,
-) : AndroidViewModel(application) {
-    private val poetry = PoetryRepository.get(application)
-    private val history = HistoryRepository.get(application)
+    private val poetry: PoetryRepository,
+    private val history: HistoryRepository,
+) : ViewModel() {
 
     /** True once the book's poems have been read. */
     var isLoaded by mutableStateOf(false)

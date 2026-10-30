@@ -1,6 +1,5 @@
 package com.lukeneedham.poetrybook.ui.settings
 
-import com.lukeneedham.poetrybook.ui.appViewModel
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.lukeneedham.poetrybook.R
 import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.data.ImportResult
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Settings: the bin of deleted books and poems, and a one-off import of poems from a folder.
@@ -54,7 +54,7 @@ fun SettingsPage(
     modifier: Modifier = Modifier,
     onOpenDebug: (() -> Unit)? = null,
 ) {
-    val viewModel = appViewModel { SettingsViewModel(it) }
+    val viewModel = koinViewModel<SettingsViewModel>()
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) viewModel.importDirectory(uri)

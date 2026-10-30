@@ -1,6 +1,5 @@
 package com.lukeneedham.poetrybook.ui.history
 
-import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -68,6 +67,8 @@ import com.lukeneedham.poetrybook.data.PoemVersion
 import com.lukeneedham.poetrybook.ui.book.formatTimestamp
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.paperColors
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * The versions of a poem, newest first, as pages to swipe through: newer to the left, older to the
@@ -83,7 +84,7 @@ fun HistoryPage(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val viewModel = appViewModel { HistoryViewModel(it, poemId) }
+    val viewModel = koinViewModel<HistoryViewModel>(parameters = { parametersOf(poemId) })
 
     // Normally the book page has done this already, and the cached comparisons are reused.
     LaunchedEffect(poemId) { viewModel.trackHistory() }
