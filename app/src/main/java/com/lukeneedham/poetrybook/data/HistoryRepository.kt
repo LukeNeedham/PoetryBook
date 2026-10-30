@@ -20,7 +20,7 @@ const val HistoryChunkSize = 10
  * straight onto what the book page has already worked out, so they live here and not in either page's
  * view model.
  */
-class HistoryRepository private constructor(private val poetry: PoetryRepository) {
+class HistoryRepository(private val poetry: PoetryRepository) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     // --- Notepad ---
@@ -109,14 +109,5 @@ class HistoryRepository private constructor(private val poetry: PoetryRepository
             }
         }
         historyCache[poemId] = HistoryList(entries, versions.size)
-    }
-
-    companion object {
-        @Volatile
-        private var instance: HistoryRepository? = null
-
-        fun get(context: Context): HistoryRepository = instance ?: synchronized(this) {
-            instance ?: HistoryRepository(PoetryRepository.get(context)).also { instance = it }
-        }
     }
 }

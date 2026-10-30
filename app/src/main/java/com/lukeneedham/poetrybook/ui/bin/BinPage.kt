@@ -1,6 +1,5 @@
 package com.lukeneedham.poetrybook.ui.bin
 
-import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.data.BinBook
 import com.lukeneedham.poetrybook.data.BinPoem
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * The bin: deleted books, then deleted poems. Tap one to preview it and restore it or delete it
@@ -56,6 +56,6 @@ fun BinPage(
     onOpenBook: (bookId: String) -> Unit,
     onOpenPoem: (poemId: String) -> Unit,
 ) {
-    val viewModel = appViewModel { BinViewModel(it) }
+    val viewModel = koinViewModel<BinViewModel>()
     BinPageContent(viewModel.binBooks, viewModel.binPoems, onBack, onOpenBook, onOpenPoem)
 }

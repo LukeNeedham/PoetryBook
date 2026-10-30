@@ -13,8 +13,12 @@ androidxTest = "1.7.0"
 room = "2.8.5"
 ksp = "2.3.12"
 common = "0.8.0"
+koin = "4.2.2"
 
 [libraries]
+koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin" }
+koin-android = { module = "io.insert-koin:koin-android" }
+koin-compose-viewmodel = { module = "io.insert-koin:koin-androidx-compose" }
 common = { module = "com.lukeneedham:common", version.ref = "common" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }

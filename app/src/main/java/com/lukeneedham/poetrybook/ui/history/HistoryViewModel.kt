@@ -1,10 +1,9 @@
 package com.lukeneedham.poetrybook.ui.history
 
-import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lukeneedham.poetrybook.data.HistoryList
 import com.lukeneedham.poetrybook.data.HistoryRepository
@@ -14,9 +13,12 @@ import com.lukeneedham.poetrybook.data.PoetryRepository
 import kotlinx.coroutines.launch
 
 /** The versions of one poem, as pages to swipe through, and the notepad and the changes marked beside them. */
-class HistoryViewModel(application: Application, private val poemId: String) : AndroidViewModel(application) {
-    private val settings = PoetryRepository.get(application).settings
-    private val history = HistoryRepository.get(application)
+class HistoryViewModel(
+    private val poemId: String,
+    poetry: PoetryRepository,
+    private val history: HistoryRepository,
+) : ViewModel() {
+    private val settings = poetry.settings
 
     /** Every version of the poem, newest first, or null while they are still being read. */
     var versions: List<PoemVersion>? by mutableStateOf(null)

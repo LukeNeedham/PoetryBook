@@ -1,6 +1,5 @@
 package com.lukeneedham.poetrybook.ui.bin
 
-import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,11 +44,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.data.BinBook
 import com.lukeneedham.poetrybook.data.BinPoem
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /** Preview of a deleted poem, with buttons to put it back where it was or to wipe it. */
 @Composable
 fun BinPoemPage(poemId: String, onBack: () -> Unit) {
-    val viewModel = appViewModel { BinPoemViewModel(it, poemId) }
+    val viewModel = koinViewModel<BinPoemViewModel>(parameters = { parametersOf(poemId) })
     // Until the bin has been read there is nothing to show, and nothing to leave
     val binPoems = viewModel.binPoems ?: return
     val poem = binPoems.firstOrNull { it.id == poemId }

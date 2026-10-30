@@ -1,6 +1,5 @@
 package com.lukeneedham.poetrybook.ui.search
 
-import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -52,6 +51,7 @@ import com.lukeneedham.poetrybook.ui.shelf.BookCoverFace
 import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Every poem in every book, filtered by what is typed in the search bar and ordered by how well
@@ -64,6 +64,6 @@ fun SearchPage(
     onOpenPoem: (SearchPoem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val viewModel = appViewModel { SearchViewModel(it) }
+    val viewModel = koinViewModel<SearchViewModel>()
     SearchPageContent(all = viewModel.all, onBack = onBack, onOpenPoem = onOpenPoem, modifier = modifier)
 }

@@ -2,7 +2,6 @@ package com.lukeneedham.poetrybook.ui.book
 
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import com.lukeneedham.poetrybook.ui.appViewModel
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.BackHandler
@@ -47,6 +46,8 @@ import com.lukeneedham.poetrybook.pageturn.PageTurnBook
 import com.lukeneedham.poetrybook.pageturn.rememberPageTurnState
 import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * One book of poems, which you swipe or tap through, with a contents sheet dropping from the top.
@@ -65,7 +66,7 @@ fun BookPage(
     onOpenVersion: (poemId: String, createdAt: Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val viewModel = appViewModel { BookViewModel(it, bookId, poemToShow) }
+    val viewModel = koinViewModel<BookViewModel>(parameters = { parametersOf(bookId, poemToShow) })
 
     LaunchedEffect(viewModel.loadFailed) { if (viewModel.loadFailed) onBack() }
     // Finished edits are saved when the app goes to the background

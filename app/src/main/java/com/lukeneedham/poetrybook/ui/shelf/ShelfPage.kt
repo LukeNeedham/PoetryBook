@@ -75,7 +75,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.lukeneedham.poetrybook.ui.appViewModel
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -102,6 +101,7 @@ import com.lukeneedham.poetrybook.ui.theme.PoemFont
 import com.lukeneedham.poetrybook.ui.theme.TitleFont
 import com.lukeneedham.poetrybook.ui.theme.AppTheme
 import com.lukeneedham.poetrybook.ui.theme.paperColors
+import org.koin.compose.viewmodel.koinViewModel
 
 /** The bookshelf. [onOpenBook] is called with the book to open. */
 @Composable
@@ -111,7 +111,7 @@ fun ShelfPage(
     onOpenSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val viewModel = appViewModel { ShelfViewModel(it) }
+    val viewModel = koinViewModel<ShelfViewModel>()
     ShelfPageContent(
         books = viewModel.shelfBooks,
         sort = viewModel.bookSort,

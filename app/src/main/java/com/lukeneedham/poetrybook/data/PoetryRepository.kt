@@ -26,7 +26,7 @@ import kotlinx.coroutines.withContext
  * not wait for ([savePoem], [binPoem], ...) are done on this repository's own scope, so they still
  * finish when the page that asked for them, and its view model, is gone.
  */
-class PoetryRepository private constructor(private val context: Context) {
+class PoetryRepository(private val context: Context) {
     /** How the shelf is sorted and the other small preferences. */
     val settings = AppSettings(context)
 
@@ -125,15 +125,6 @@ class PoetryRepository private constructor(private val context: Context) {
             runCatching {
                 if (countsAsWrite) write { store.block() } else locked { store.block() }
             }
-        }
-    }
-
-    companion object {
-        @Volatile
-        private var instance: PoetryRepository? = null
-
-        fun get(context: Context): PoetryRepository = instance ?: synchronized(this) {
-            instance ?: PoetryRepository(context.applicationContext).also { instance = it }
         }
     }
 }

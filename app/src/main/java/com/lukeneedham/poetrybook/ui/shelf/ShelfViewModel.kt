@@ -1,10 +1,9 @@
 package com.lukeneedham.poetrybook.ui.shelf
 
-import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lukeneedham.poetrybook.data.AppSettings
 import com.lukeneedham.poetrybook.data.Book
@@ -14,8 +13,7 @@ import com.lukeneedham.poetrybook.data.sortedFor
 import kotlinx.coroutines.launch
 
 /** The bookshelf: the books, how they are ordered and how many fit in a row. */
-class ShelfViewModel(application: Application) : AndroidViewModel(application) {
-    private val poetry = PoetryRepository.get(application)
+class ShelfViewModel(private val poetry: PoetryRepository) : ViewModel() {
     private val settings = poetry.settings
 
     /** Every book on the shelf, from the database. */
