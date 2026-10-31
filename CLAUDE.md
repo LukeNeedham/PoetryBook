@@ -12,9 +12,13 @@
 
 ## One view model per page, never shared
 
-- Every page has a view model of its own (`ShelfViewModel`, `BookViewModel`, `SearchViewModel`, `SettingsViewModel`, `HistoryViewModel`, `BinViewModel`, `BinBookViewModel`, `BinPoemViewModel`) and none is shared between pages: no activity-scoped or app-wide view model, and a page never reaches another page's. Create a page's view model in its `XPage` with `appViewModel { ... }` (`ui/AppViewModel.kt`); `AppNavigation` gives each back stack entry its own view model store, so a view model lives as long as its page is on the back stack.
-- What several pages need lives below the view models, in the repositories in `data/`: `PoetryRepository` (database, settings, the write lock, and `writes`, which changes after each write so search can read again) and `HistoryRepository` (the notepad and history caches that the book and history pages both show). Both are singletons got with `get(context)`.
+- Every page has a view model of its own (`ShelfViewModel`, `BookViewModel`, `SearchViewModel`, `SettingsViewModel`, `HistoryViewModel`, `BinViewModel`, `BinBookViewModel`, `BinPoemViewModel`) and none is shared between pages: no activity-scoped or app-wide view model, and a page never reaches another page's. `AppNavigation` gives each back stack entry its own view model store, so a view model lives as long as its page is on the back stack.
+- What several pages need lives below the view models, in the repositories in `data/`: `PoetryRepository` (database, settings, the write lock, and `writes`, which changes after each write so search can read again) and `HistoryRepository` (the notepad and history caches that the book and history pages both show).
 - `Route.Book(bookId, poemId)` carries the book to read, so `BookViewModel` opens it itself; a finished edit is saved when the app stops and when the book page is left (`onCleared`).
+
+## Dependency injection
+
+Dependency injection is set up in accordance with the architecture in the [common repo](https://github.com/LukeNeedham/ci-workflows/blob/main/docs/new-app.md#6-app-architecture).
 
 <!-- ci-workflows:begin (managed by LukeNeedham/ci-workflows, do not edit) -->
 - `.claude/skills/lukeneedham-conventions` and the callers `trigger_on_pull_request.yml`, `build_main.yml`, `delete_prereleases.yml`, `release.yml` in `.github/workflows/` are kept in sync from
